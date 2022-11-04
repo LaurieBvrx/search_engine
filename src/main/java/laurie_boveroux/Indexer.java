@@ -74,6 +74,7 @@ public class Indexer{
     }
 
     public static String lemmatize(String text) throws UnsupportedEncodingException{
+
         String[] words = text.split(" ");
         String lemmatizedText = "";
         for (String word : words) {
@@ -181,8 +182,13 @@ public class Indexer{
     }   
 
     public static void sortAndWriteBlockToFile(Map<String, List<Integer>> dictionary) throws IOException{
-        //Sort the dictionary
-        Path file = Paths.get("block"+blockNumber+".txt");
+        // Create blocks directory of does not exist
+        File blocksDirectory = new File("blocks");
+        if (!blocksDirectory.exists()){
+            blocksDirectory.mkdir();
+        }
+        // Create the block file
+        File blockFile = new File("blocks/block" + blockNumber + ".txt");
 
         List<String> keys = new ArrayList<String>(dictionary.keySet());
 		Collections.sort(keys);
@@ -195,7 +201,8 @@ public class Indexer{
 			lines.add(index);
 		}
 
-        Files.write(file, lines);
+        //write the block to disk
+        FileUtils.writeLines(blockFile, lines);
         
         blockNumber++;
         keys.clear();
@@ -204,7 +211,8 @@ public class Indexer{
     }
 
     public static void test() throws IOException{
-        String collectionPath = "C:\\ULIEGE\\MASTER\\MASTER2\\MIRCV\\projectMaven2-11\\search_engine\\data\\collection.tsv";
+        String currentPath = new java.io.File(".").getCanonicalPath();
+        String collectionPath = currentPath + "\\data\\collection.tsv";
         File collectionFile = new File(collectionPath);
         //LineIterator it = FileUtils.lineIterator(collectionFile, "UTF-8");
         LineIterator it = FileUtils.lineIterator(collectionFile);
@@ -258,7 +266,7 @@ public class Indexer{
     }
         
     public static void mergeBlocks() throws IOException{
-        int tmpblockNumber = 25;
+        int tmpBlockNumber = 25;
 
         // Inverted index file
         RandomAccessFile invIndexDocId = new RandomAccessFile("invertedIndexDocId.txt", "rw");
@@ -274,8 +282,8 @@ public class Indexer{
         List<String> postingArray = new ArrayList<String>();
         List<Boolean> finishBlock = new ArrayList<Boolean>();
 
-        for (int i=0; i<tmpblockNumber; i++){
-            collectionFile.add(new File("block"+i+".txt"));
+        for (int i=0; i<blockNumber; i++){
+            collectionFile.add(new File("blocks/block"+i+".txt"));
             iterators.add(FileUtils.lineIterator(collectionFile.get(i), "UTF-8"));
             String[] line = iterators.get(i).nextLine().split(" : ");
             termArray.add(line[0]);
@@ -297,7 +305,7 @@ public class Indexer{
 
             //long startPostList = invIndexDocId.getFilePointer();
 
-            for (int i=0; i<tmpblockNumber; i++){
+            for (int i=0; i<blockNumber; i++){
                 if (termArray.get(i).equals(minTerm)){
                     minIndexes.add(i);
                 }
@@ -358,7 +366,7 @@ public class Indexer{
                     termArray.set(index, "zzzzzzzzzzzzzzzzzzz");
                     postingArray.set(index, "zzzzzzzzzzzzzzzzzzz");
                     finishBlock.set(index, true);
-                    tmpblockNumber--;
+                    //tmpblockNumber--;
                 }
             }
 

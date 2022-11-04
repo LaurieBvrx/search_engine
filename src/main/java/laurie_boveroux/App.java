@@ -58,8 +58,8 @@ public class App
 
             // Parse tsv file
             Indexer indexer = new Indexer();
-            //indexer.parseTsvFile(dirData + fileName, 1000000); 
-            //indexer.mergeBlocks();
+            indexer.parseTsvFile(dirData + fileName, 1000); 
+            indexer.mergeBlocks();
             //indexer.test();
             
             //Query Search
