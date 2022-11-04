@@ -42,7 +42,11 @@ public class App
         try{
             // Hello world !
             System.out.println( "Hello World!" );
-            String dirData = "C:\\ULIEGE\\MASTER\\MASTER2\\MIRCV\\projectMaven2-11\\search_engine\\data\\";
+            // get the path to the current directory
+            String currentPath = new java.io.File(".").getCanonicalPath();
+            String dirData = currentPath + "\\data\\";
+            System.out.println("Current path : " + currentPath);
+            System.out.println("Data path : " + dirData);
             String compressedFileName = "collection.tar.gz";
 
             // Extract tar.gz file
@@ -54,7 +58,7 @@ public class App
 
             // Parse tsv file
             Indexer indexer = new Indexer();
-            indexer.parseTsvFile(dirData + fileName, 1000000); 
+            //indexer.parseTsvFile(dirData + fileName, 1000000); 
             //indexer.mergeBlocks();
             //indexer.test();
             
