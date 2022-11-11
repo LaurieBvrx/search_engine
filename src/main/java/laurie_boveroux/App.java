@@ -57,17 +57,26 @@ public class App
             System.out.println("Extraction time: " + (endTimeExtraction - startTime)/1000000000.0 + " seconds");
 
             // Parse tsv file
+            Long startTimeParsing = System.nanoTime();
             Indexer indexer = new Indexer();
-            indexer.parseTsvFile(dirData + fileName, 1000); 
+            int nbDoc = indexer.parseTsvFile(dirData + fileName, -1); 
             indexer.mergeBlocks();
             //indexer.test();
+            Long endTimeParsing = System.nanoTime();
+            System.out.println("Parsing time: " + (endTimeParsing - startTimeParsing)/1000000000.0 + " seconds");
             
             //Query Search
-            //QuerySearch querySearch = new QuerySearch();
-            //querySearch.loadLexiconIntoMemory();
+            long StartTimeQuery = System.nanoTime();
+            QuerySearch querySearch = new QuerySearch("disjunctive", nbDoc); // disjunctive
+            //querySearch.loadLexiconIntoMemory(); NO !!
             //querySearch.loadDocumentIndex();
+            List<List<Integer>> idsNscores = querySearch.executeQuery("aaacn sigs"); //aaacn sigs
+            long endTimeQuery = System.nanoTime();
+            System.out.println("Query time: " + (endTimeQuery - StartTimeQuery)/1000000000.0 + " seconds");
+            // print the results
+            System.out.println("ids : " + idsNscores.get(0));
+            System.out.println("scores : " + idsNscores.get(1));
         
-
 
         }
         catch(Exception e){
@@ -78,3 +87,5 @@ public class App
     }
 
 }
+//aaacn : [269591, 269595]
+//sigs : [269591, 738500, 818153]

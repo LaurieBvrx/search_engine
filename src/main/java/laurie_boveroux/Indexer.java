@@ -52,7 +52,7 @@ public class Indexer{
         // Decode the Windows-1252 or Latin-1 bytes back into UTF-8 to get the correct string
         text = new String(bytes, "UTF-8");
         // remove all the punctuation but keep '
-        String preprocessedText = text.replaceAll("[^a-zA-Z0-9'\\s]", " ");
+        String preprocessedText = text.replaceAll("[^a-zA-Z0-9\\s]", " ");
         // remove all the numbers
         preprocessedText = preprocessedText.replaceAll("[0-9]", " ");
         // remove all the multiple spaces
@@ -85,7 +85,7 @@ public class Indexer{
         return lemmatizedText;
     }
 
-    public static void parseTsvFile(String collectionPath, int numberReadDoc) throws IOException{
+    public static int parseTsvFile(String collectionPath, int numberReadDoc) throws IOException{
         try{
             if (numberReadDoc == -1){
                 numberReadDoc = Integer.MAX_VALUE;
@@ -179,6 +179,8 @@ public class Indexer{
         catch(Exception e){
             System.err.println("Error: " + e.getMessage());
         }
+
+        return docid;
     }   
 
     public static void sortAndWriteBlockToFile(Map<String, List<Integer>> dictionary) throws IOException{
@@ -209,65 +211,8 @@ public class Indexer{
         lines.clear();
 
     }
-
-    public static void test() throws IOException{
-        String currentPath = new java.io.File(".").getCanonicalPath();
-        String collectionPath = currentPath + "\\data\\collection.tsv";
-        File collectionFile = new File(collectionPath);
-        //LineIterator it = FileUtils.lineIterator(collectionFile, "UTF-8");
-        LineIterator it = FileUtils.lineIterator(collectionFile);
-
-
-        for (int i=0; i<2; i++){
-            String document = it.nextLine(); // one line = one document
-            List<Integer> listI = new ArrayList<Integer>();
-            listI.add(0);
-            listI.add(1);
-            listI.add(7826342);
-            listI.add(895414);
-            listI.add(978731);
-            listI.add(495894);
-
-            if (listI.contains(i)){
-                String[] documentArray = document.split("\t"); // docNo and text are separated by a tabulation
-            
-                // Information about the document
-                Integer docNo = Integer.parseInt(documentArray[0]);
-                String text = documentArray[1];
-                byte[] bytes = text.getBytes("Windows-1252");
-                // Decode the Windows-1252 or Latin-1 bytes back into UTF-8 to get the correct string
-                text = new String(bytes, "UTF-8");
-                // print before preprocessing
-                System.out.println("before preprocessing: " + docNo + " " + text);
-                String preprocessedText = preprocessingText(text); // preprocess the text
-                System.out.println("----------------------");
-                //System.out.println(preprocessedText);
-                String[] terms = preprocessedText.split(" ");
-                List<String> termsWithoutStopWords = new ArrayList<String>();
-                // remove stopwords
-                for (String term : terms){
-                    if (Arrays.asList(stopwordsList).contains(term)){
-                        continue;
-                    }
-                    termsWithoutStopWords.add(term);
-                }
-                // order terms
-                Collections.sort(termsWithoutStopWords);
-                // Merge termsWithoutStopWords into a string
-                String termsWithoutStopWordsString = String.join(" ", termsWithoutStopWords);
-                
-
-                System.out.println("after preprocessing: " + docNo + " " + termsWithoutStopWordsString);
-            }
-            
-        }
-
-        it.close();
-    }
-        
+    
     public static void mergeBlocks() throws IOException{
-        int tmpBlockNumber = 25;
-
         // Inverted index file
         RandomAccessFile invIndexDocId = new RandomAccessFile("invertedIndexDocId.txt", "rw");
         RandomAccessFile invIndexFreq = new RandomAccessFile("invertedIndexFreq.txt", "rw");
@@ -311,19 +256,8 @@ public class Indexer{
                 }
             }
 
-            //debug
-            //System.out.println("minIndexes : " + minIndexes);
-
-            int nbRemove = 0;
-
             // Write the posting list of each block at a time after reduce it (because of the duplicates)
             for (int i=0; i<minIndexes.size(); i++){
-
-                //debug
-                // System.out.println("minIndexes.size() : " + minIndexes.size());
-                // System.out.println("minIndexes.get(i) : " + minIndexes.get(i));
-                // System.out.println("postingArray.size() : " + postingArray.size());
-                //System.out.println("postingArray.get(minIndexes.get(i)) : " + postingArray.get(minIndexes.get(i)));
 
                 // get posting list in integer
                 String[] postings = postingArray.get(minIndexes.get(i)).split(", ");
@@ -336,23 +270,6 @@ public class Indexer{
                     postings[postings.length-1] = postings[postings.length-1].substring(0, postings[postings.length-1].length()-1);
                 }
                 byteWritten = byteWritten + reduceAndWritePostingList(postings, invIndexDocId, invIndexFreq);
-
-                // Update all the arrays
-                // ERROR WITH INDEX OUT OF BOUND, mayeb bc of remove
-                // int index = minIndexes.get(i);
-                // if (iterators.get(index).hasNext()){
-                //     String[] line = iterators.get(index).nextLine().split(" : ");
-                //     termArray.set(index, line[0]);
-                //     postingArray.set(index, line[1]);
-                // }
-                // else{
-                //     iterators.get(index-nbRemove).close();
-                //     iterators.remove(index-nbRemove);
-                //     termArray.remove(index-nbRemove);
-                //     postingArray.remove(index-nbRemove);
-                //     tmpblockNumber--;
-                //     nbRemove++;
-                // }
 
                 //update all the arrays
                 int index = minIndexes.get(i);
@@ -370,11 +287,9 @@ public class Indexer{
                 }
             }
 
-            //long endPostList = invIndexDocId.getFilePointer();
             int endPostList = byteWritten;
-            writerLexicon.println(minTerm + "\t"+ startPostList +"\t"+ endPostList);
+            writerLexicon.println(minTerm + " "+ startPostList);
             startPostList = startPostList + endPostList;
-            //System.out.println("minTerm: " + minTerm);
 
             counter++;           
         }
@@ -384,32 +299,32 @@ public class Indexer{
     public static int reduceAndWritePostingList(String[] postingsString, RandomAccessFile invIndexDocId, RandomAccessFile invIndexFreq) throws IOException{
 
         int writtenBytes = 0;
-        List<byte[]> byteDocId = new ArrayList<byte[]>();
-        List<byte[]> byteFreq = new ArrayList<byte[]>();
-
-        String currDocId = postingsString[0];
-        int currFreq = 1;
-
         // if invIndexDocidBuffer is full, write it to the file        
         if (totalNbBytes >= 4096 * 10000){
             System.out.println("Buffer is full, writing to file");
             writeToFile();
         }
-        for (int i=0; i<postingsString.length; i++){
-            if (postingsString[i] == currDocId){
-                currFreq++;
-            }
-            else{
-                // convert currDocId into 4 bytes
-                byte[] bytesDocID = ByteBuffer.allocate(4).putInt(Integer.parseInt(currDocId)).array();
-                invIndexDocId.write(bytesDocID);
-                totalNbBytes += 4;
-                writtenBytes += 4;
 
-                // convert currFreq into 4 bytes
-                byte[] bytesFreq = ByteBuffer.allocate(4).putInt(currFreq).array();
-                invIndexFreq.write(bytesFreq);
+        int i = 0;
+        while (i < postingsString.length) {
+            // get the first element
+            String currDocId = postingsString[i];
+            // count the number of occurences
+            int count = 0;
+            while (i < postingsString.length && postingsString[i].equals(currDocId)) {
+                count++;
+                i++;
             }
+
+            // convert currDocId into 4 bytes
+            byte[] bytesDocID = ByteBuffer.allocate(4).putInt(Integer.parseInt(currDocId)).array();
+            invIndexDocId.write(bytesDocID);
+            totalNbBytes += 4;
+            writtenBytes += 4;
+
+            // convert currFreq into 4 bytes
+            byte[] bytesFreq = ByteBuffer.allocate(4).putInt(count).array();
+            invIndexFreq.write(bytesFreq);
         }
         return writtenBytes;
     }
