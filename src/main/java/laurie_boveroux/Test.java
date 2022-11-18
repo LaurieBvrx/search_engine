@@ -2,87 +2,133 @@ package laurie_boveroux;
 import java.io.*;
 import java.util.*;
 
+import java.util.stream.Stream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.ByteBuffer;
+
 public class Test{
 
-    public void createFile() throws IOException {
-        // Create a new file
-        RandomAccessFile file = new RandomAccessFile("test.txt", "rw");
-        // write 1000 strings of random length in the file
-        List<String> listWords = new ArrayList<String>();
-        for (int i = 0; i < 1000; i++) {
-            // random length between 1 and 20
-            int length = (int) (Math.random() * 20) + 1;
-            String word = "";
-            for (int j = 0; j < length; j++) {
-                // random char between a and z
-                int character = (int) (Math.random() * 26 + 'a');
-                // pritn the word
-                word += (char) character;
-            }
-            // add word to the list
-            listWords.add(word);
-            // print the word every 100 words
-            if (i % 100 == 0) {
-                System.out.println(word);
-            }
-        }
+    public static BufferedOutputStream invIndexDocidBuffer;
+    public static BufferedOutputStream invIndexFreqBuffer;
 
-        // sort the list
-        Collections.sort(listWords);
-        // write the list in the file
-        for (String word : listWords) {
-            file.writeBytes(word);
-            // random number
-            int number = (int) (Math.random() * 100);
-            // write the number
-            file.writeBytes(" " + number + "\n");
-        }
-        file.close();
-
+    public Test() throws IOException{
+        this.invIndexDocidBuffer = new BufferedOutputStream(new FileOutputStream("InvertedIndexDocid.txt"),4096 * 10000);
+        this.invIndexFreqBuffer  = new BufferedOutputStream(new FileOutputStream("InvertedIndexFreq.txt"),4096 * 10000);
     }
 
-    // String comparator
-    public static class StringComparator implements Comparator<String> {
-        @Override
-        public int compare(String s1, String s2) {
-            // s1 is the line
-            // split the line
-            String[] split = s1.split(" ");
-            // get the first element
-            String word = split[0];
-            // s2 is the element
-            return word.compareTo(s2);
+    public static List<Integer> VBEncodeNumber(Integer n){
+        List<Integer> result = new ArrayList<Integer>();
+        while(true){
+            result.add(n % 128);
+            if (n < 128){
+                break;
+            }
+            else{
+                n = n / 128;
+            }
         }
+        return result;        
+    }
+
+    public static void VBEncode(List<Integer> list, Boolean flag) throws IOException{
+        for (int i = 0; i < list.size(); i++){
+            int n = list.get(i);
+            String binary = Integer.toBinaryString(n);
+            while (binary.length() < 7){ // add 0 to the left if the binary is not 8 bits
+                binary = "0" + binary;
+            }
+            if (i == list.size() - 1){ // if it is the last number, add 0 to the left
+                binary = "0" + binary;
+            }else{ // else add 1 to the left
+                binary = "1" + binary;
+            }
+            if (flag){
+                invIndexDocidBuffer.write(Integer.parseInt(binary,2));
+            }
+            else{
+                invIndexFreqBuffer.write(Integer.parseInt(binary,2));
+            }
+        }
+    }
+
+    public static List<Integer> VBDecode(byte[] bytesTab){
+        List<Integer> result = new ArrayList<Integer>();
+        for (int i = 0; i < bytesTab.length; i++){
+            String intermediateNumber = "";
+            while (bytesTab[i] < 0){ // 1xxxxxxx, read the next byte while the first bit is 1
+                String binaryNum = Integer.toBinaryString(bytesTab[i] & 0x7F); // to binary by replacing the first bit by 0
+                while (binaryNum.length() < 7){ // add 0 to the left if the binary is not 8 bits
+                    binaryNum = "0" + binaryNum;
+                }
+                intermediateNumber = binaryNum + intermediateNumber;
+                i++;
+            }
+            // last number
+            String binaryNum = Integer.toBinaryString(bytesTab[i] & 0x7F);
+            intermediateNumber = binaryNum + intermediateNumber;
+            result.add(Integer.parseInt(intermediateNumber,2));
+        }
+        return result;        
     }
 
     public static void main(String[] args) throws IOException{
-        System.out.println("Hello World!");
-        if (false){
-            Test test = new Test();
-            try {
-                test.createFile();
-            } catch (IOException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
+        // Variable-bytes code, an algorithm to compress integer to bytes
+        // https://nlp.stanford.edu/IR-book/html/htmledition/variable-byte-codes-1.html
+        Test test = new Test();
+        List<Integer> listDocId = new ArrayList<Integer>();
+        //add random numbers between 0 and 1000000
+        for (int i = 0; i < 1000000; i++){
+            listDocId.add((int)(Math.random() * 1000000));
         }
+        // listDocId.add(6964361);
 
-        if (true){
-            int x = 4;
-            // list of integers
-            List<Integer> list = new ArrayList<Integer>();
-            for (int i = 0; i < 10; i++){
-                list.add(4);
-            }
-            int i = 0;
-            while(i < list.size() && list.get(i) == x){
-                System.out.println(i);
-                i++;
-            }
-
+        List<Integer> listFreq = new ArrayList<Integer>();
+        //add random numbers between 0 and 1000000
+        for (int i = 0; i < 1000000; i++){
+            listFreq.add((int)(Math.random() * 200));
         }
+        //listFreq.add(7);
+
+        for (int i = 0; i < listDocId.size(); i++){
+            List<Integer> encodedDocId = new ArrayList<Integer>();
+            List<Integer> encodedFreq = new ArrayList<Integer>();
+
+            if (listDocId.get(i) > listFreq.get(i)){ // if the docid is greater than the frequency, adapt the frequency
+                encodedDocId = VBEncodeNumber(listDocId.get(i));
+                VBEncode(encodedDocId, true);
+                int lenDocID = encodedDocId.size();
+                encodedFreq = VBEncodeNumber(listFreq.get(i));
+                while (encodedFreq.size() < lenDocID){
+                    encodedFreq.add(0);
+                }
+                VBEncode(encodedFreq, false);                
+            }
+            else{ // if the frequency is greater than the docid, adapt the docid
+                encodedFreq = VBEncodeNumber(listFreq.get(i));
+                VBEncode(encodedFreq, false);
+                int lenFreq = encodedFreq.size();                
+                encodedDocId = VBEncodeNumber(listDocId.get(i));
+                while (encodedDocId.size() < lenFreq){
+                    encodedDocId.add(0);
+                }
+                VBEncode(encodedDocId, true);                
+            }           
+        }
+        
+        invIndexDocidBuffer.close();
+        invIndexFreqBuffer.close();
+
+        // read the file
+        byte[] bytesTab = Files.readAllBytes(Paths.get("InvertedIndexDocid.txt"));
+        List<Integer> decodedList = VBDecode(bytesTab);
+        //System.out.println(decodedList);
+
+        // read the file
+        byte[] bytesTab2 = Files.readAllBytes(Paths.get("InvertedIndexFreq.txt"));
+        List<Integer> decodedList2 = VBDecode(bytesTab2);
+        //System.out.println(decodedList2);
+
 
     }
 }
-
-// 

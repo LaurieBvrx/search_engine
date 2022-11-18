@@ -3,25 +3,25 @@ package laurie_boveroux;
 import java.io.*;
 import java.util.*;
 
+import java.util.stream.Stream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
 public class QuerySearch{
 
     public static Map<Integer,Integer[]> docIndex;
     public static Integer averageDocumentSize = 0;
     ExternalBinarySearch lexicon;
-    public static String typeQuery;
     public static Integer numberDoc;
+    public List<Integer> scoreList; // List of the computed scores
+    public List<Integer> docIdList; // List of the docID of the score
 
 
-    public QuerySearch(String type, int nbDoc) throws FileNotFoundException{
+    public QuerySearch(int nbDoc) throws FileNotFoundException{
         this.lexicon = new ExternalBinarySearch(new File("lexicon.txt"));
-        if (type.equals("conjunctive") || type.equals("disjunctive")){
-            this.typeQuery = type;
-        }
-        else{
-            System.out.println("Please enter a valid type of query");
-        }
-        //this.numberDoc = docIndex.size();
-        this.numberDoc = nbDoc;
+        this.numberDoc = nbDoc; // Number of documents in the collection (to compute TF-IDF)
+        this.scoreList = new ArrayList<Integer>();
+        this.docIdList = new ArrayList<Integer>();
     }
 
     public void loadDocumentIndex() throws IOException {
@@ -41,7 +41,7 @@ public class QuerySearch{
 
             docIndex.put(Integer.parseInt(words[0]),list);
             if(count%10000 == 0) {
-                System.out.println("Loading lexicon " + docIndex + " " + words[0]);
+                System.out.println("Loading DocumentIndex " + docIndex + " " + words[0]);
             }
             count++;
             numberOfDocuments++;
@@ -52,9 +52,9 @@ public class QuerySearch{
     }
 
     public ListPointer openList(String term) throws IOException {
-        
+        /* Get the posting list of the term and all info about it*/
         String line = lexicon.search(term);
-        //debug
+        // Print line
         System.out.println("line: " + line);
         // if the term is not in the lexicon
         if(line == null) {
@@ -62,20 +62,19 @@ public class QuerySearch{
         }
         // line: [term + " " + startIndex + "\n" + nextTerm + " " + endIndex]
         String[] split = line.split("\n");
+        // print size of split
+        System.out.println("size of split: " + split.length);
+        
         // If this is the last term in the lexicon [term + " " + start]
         if (split.length == 1) {
             String start = split[0].split(" ")[1];
-            //debug
-            System.out.println("start: " + start);
+            start = start.substring(0, start.length() - 1);
             return new ListPointer(term, Integer.parseInt(start), -1);
         }else{
             String start = split[0].split(" ")[1];
             start = start.substring(0, start.length() - 1); // remove space that is added to the end of the line
             String end = split[1].split(" ")[1];
-            end = end.substring(0, end.length() - 1);
-
-
-            
+            end = end.substring(0, end.length() - 1);            
             return new ListPointer(term, Integer.parseInt(start), Integer.parseInt(end));
         }
 
@@ -83,9 +82,8 @@ public class QuerySearch{
 
     public int nextGEQ(ListPointer lp, int d) throws IOException {
         // advances the iterator forward to the next posting with a document identifier greater than or equal to d
-        // if there is no such posting, the iterator is advanced to the end of the list
+        // if there is no such posting, the iterator is advanced to the end of the list the method returns -1
         // returns the document identifier of the current posting
-        // if the iterator is already past the end of the list, the method returns -1
         int i = 0;
         lp.index = 0;
         while (i < lp.getLength() && lp.docIdsArray[i] < d) {
@@ -96,8 +94,7 @@ public class QuerySearch{
             //lp.index--; // Pas sure
             return -1;
         }
-        return lp.docIdsArray[lp.index];
-        
+        return lp.docIdsArray[lp.index];        
     }
 
     public int next(ListPointer lp){
@@ -111,17 +108,13 @@ public class QuerySearch{
         return lp.docIdsArray[lp.index];
     }
 
-    public int getTermFreq(ListPointer lp) throws IOException {
+    public int getFreq(ListPointer lp) throws IOException {
         // returns the frequency of the current posting
-        return lp.getTermFreq(lp.index);
+        return lp.getFreq(lp.index);
     }
 
     public int computeScoreTFIDF(int docId, int[] tf, int[] df) {
         // computes the score of the current doc
-        // print tf
-        System.out.println("tf: " + Arrays.toString(tf));
-        // print df
-        System.out.println("df: " + Arrays.toString(df));
         int score = 0;        
         for (int i = 0; i < tf.length; i++) {
             score += tf[i] * Math.log(numberDoc/df[i]);
@@ -129,28 +122,52 @@ public class QuerySearch{
         return score;
     }
 
-    public List<List<Integer>> addScore(List<Integer> scoreList, int score, List<Integer> docIdList, int did) {
-        if (scoreList.size() < 10){
-            scoreList.add(score);
-            docIdList.add(did);
+    public void addScore(int score, int did){
+        /* add score to the list if size <10 or replace the lowest score if new score > lowest score */
+        if (this.scoreList.size() < 10){
+            this.scoreList.add(score);
+            this.docIdList.add(did);
         }
         else{
-            int min = Collections.min(scoreList);
+            int min = Collections.min(this.scoreList);
             if (score > min){
-                int index = scoreList.indexOf(min);
-                scoreList.remove(index);
-                scoreList.add(score);
-                docIdList.remove(index);
-                docIdList.add(did);
+                int index = this.scoreList.indexOf(min);
+                this.scoreList.remove(index);
+                this.scoreList.add(score);
+                this.docIdList.remove(index);
+                this.docIdList.add(did);
             }
         }
-        List<List<Integer>> result = new ArrayList<List<Integer>>();
-        result.add(scoreList);
-        result.add(docIdList);
-        return result;
     }
-    public List<List<Integer>> executeQuery(String query) throws IOException {
-        String[] q = query.toLowerCase().split(" ");
+
+    public void printRelevantDocs() throws IOException{
+        /* print the 10 most relevant documents */
+        int size = this.scoreList.size();
+        System.out.println("The " + size + " most relevant documents are: ");
+        for (int i = 0; i < size; i++){
+            String line = "";
+            int docID = this.docIdList.get(i);
+            try (Stream<String> lines = Files.lines(Paths.get("data/collection.tsv"))) {
+                line = lines.skip(docID).findFirst().get();
+            }
+            String[] documentArray = line.split("\t"); // docNo and text are separated by a tabulation               
+            Integer docNo = Integer.parseInt(documentArray[0]);
+            String text = documentArray[1];
+            System.out.println("Document " + docNo + " with score " + this.scoreList.get(i) + " : \n" + text);
+        }
+    }
+
+    public void closeList(){
+        //clean score List and docId List
+        this.scoreList.clear();
+        this.docIdList.clear();
+    }
+
+    public void executeQuery(String typeQuery, String query) throws IOException {
+
+        // Processing of the query
+        query = Indexer.preprocessingText(query);
+        String[] q = query.split(" ");
         int num = q.length;
         ListPointer[] lp = new ListPointer[num];
         for (int i = 0; i < num; i++){
@@ -176,8 +193,10 @@ public class QuerySearch{
             }
         }
         num = list.size();
+        // print num of terms in the query
+        System.out.println("Number of terms in the query: " + num);
 
-        // find the min Max doc id
+        // find the min max doc id among all the list pointers
         int minMaxDocId = list.get(0).getMaxDocId();
         for (int i = 1; i < list.size(); i++){
             if (list.get(i).getMaxDocId() < minMaxDocId){
@@ -185,19 +204,14 @@ public class QuerySearch{
             }
         }
 
+        // find the max doc id among all the list pointers
         int maxDocId = 0;
         for (ListPointer p : list) {
             int tmpMaxDocId = p.getMaxDocId();
             if (tmpMaxDocId > maxDocId) {
                 maxDocId = tmpMaxDocId;
             }
-        }
-
-        // result
-        List<Integer> scoreList = new ArrayList<Integer>();
-        // docID list of the result
-        List<Integer> docIdList = new ArrayList<Integer>();
-
+        }        
 
         if (typeQuery.equals("conjunctive")){
             int did = 0;   // document id
@@ -219,21 +233,19 @@ public class QuerySearch{
                     int[] df = new int[num]; // document frequencies array
                     // get the frequencies
                     for (int i=0; i<num; i++) {
-                        tf[i] = getTermFreq(list.get(i));
-                        df[i] = list.get(i).getDocFreq();
+                        tf[i] = getFreq(list.get(i)); // get the frequency of all the terms of the query that are in the document
+                        df[i] = list.get(i).getDocFreq(); // get the document frequency of all the terms of the query
                     }
-                    int score = computeScoreTFIDF(did, tf, df);
-                    // add score to the list if size <10 or replace the lowest score
-                    List<List<Integer>> tmp =  addScore(scoreList, score, docIdList, did);
-                    scoreList = tmp.get(0);
-                    docIdList = tmp.get(1);
                     
+                    int score = computeScoreTFIDF(did, tf, df);
+                    // add score to the list if size <10 or replace the lowest score if new score > lowest score
+                    addScore(score, did);                    
                 }
 
                 did++; /* and increase did to search for next post */
             }
         }
-        else{ // disjunctive query: compute the score for all docs that have a list one term
+        else if (typeQuery.equals("disjunctive")){ // disjunctive query: compute the score for all docs that have a list one term
             int did =0;
             while (did <= maxDocId){
                 int[] tf = new int[num]; // term frequencies array
@@ -243,11 +255,8 @@ public class QuerySearch{
                 for (int i=0; i<num; i++) {
                     int d = nextGEQ(list.get(i), did);
                     if (d == did){
-                        tf[i] = getTermFreq(list.get(i));
+                        tf[i] = getFreq(list.get(i));
                         df[i] = list.get(i).getDocFreq();
-                        // print df[i]
-                        System.out.println("df : " + df[i]);
-                        System.out.println("tf : " + df[i]);
                         nbTerm++;
                     }
                 }               
@@ -264,13 +273,36 @@ public class QuerySearch{
                     }
                     int score = computeScoreTFIDF(did, tf2, df2);
                     // add score to the list if size <10 or replace the lowest score
-                    List<List<Integer>> tmp =  addScore(scoreList, score, docIdList, did);
-                    scoreList = tmp.get(0);
-                    docIdList = tmp.get(1);
+                    addScore(score, did);
                 }
                 did++;
             }           
         }
-        return Arrays.asList(docIdList, scoreList);
-    }        
+        else{
+            System.out.println("Error: type of query not recognized");
+        }
+        System.out.println("ids : " + this.docIdList);
+
+        // get the docNo
+        List<Integer> docNoList = getDocNo();
+        System.out.println("docNo : " + docNoList);
+        System.out.println("scores : " + this.scoreList);
+
+
+    }
+    
+    public List<Integer> getDocNo() throws IOException{
+        List<Integer> docNoList = new ArrayList<Integer>();
+        int size = this.docIdList.size();
+        for (int i = 0; i < size; i++){
+            String line = "";
+            int docID = this.docIdList.get(i);
+            Stream<String> lines = Files.lines(Paths.get("DocumentIndex.txt"));
+            line = lines.skip(docID).findFirst().get();
+            String[] documentArray = line.split(" ");
+            int docNo = Integer.parseInt(documentArray[1]);
+            docNoList.add(docNo);            
+        }
+        return docNoList;
+    }
 }
