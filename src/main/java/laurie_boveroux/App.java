@@ -98,9 +98,8 @@ public class App
                         }
                     }
                     // Create the index and the lexicon
-                    Long startTime = System.nanoTime();
-                    Indexer indexer = new Indexer();
-
+                    Long startTime = (long) 0;
+                    Indexer indexer = new Indexer("Lexicon.txt");
                     String stemmingMsg = "\n\nWould you like to use stemming? Please enter y or n.";
                     System.out.println(stemmingMsg);
                     while(true){
@@ -108,22 +107,27 @@ public class App
                         String answerStem = scStem.nextLine();
                         if(answerStem.equals("y")){
                             stemFlag = true;
+                            startTime = System.nanoTime();
                             nbDocProcessed = indexer.parseTsvFile(dirData + fileName, nbDocToProcess, stemFlag);
+                            indexer.mergeBlocks();
+                            long endTime = System.nanoTime();
+                            long duration = (endTime - startTime)/1000000000;
+                            System.out.println("The index and the stemmed lexicon have been created in " + duration + " seconds");
                             break;
                         }else if(answerStem.equals("n")){
                             stemFlag = false;
+                            startTime = System.nanoTime();
                             nbDocProcessed = indexer.parseTsvFile(dirData + fileName, nbDocToProcess, stemFlag);
+                            indexer.mergeBlocks();
+                            long endTime = System.nanoTime();
+                            long duration = (endTime - startTime)/1000000000;
+                            System.out.println("The index and the lexicon have been created in " + duration + " seconds");
                             break;
                         }
                         else{
                             System.out.println("Please enter y or n.");
                         }
-                        indexer.mergeBlocks("Lexicon.txt");
-                        System.out.println("\nThe lexicon has been generated.");
                     }
-                    Long endTime = System.nanoTime();
-                    System.out.println("Index and lexicon created in " + (endTime - startTime)/1000000000 + " seconds");
-                    break;
                 }
                 else if(answer.equals("n")){
                     nbDocProcessed = 8841822;
@@ -136,13 +140,13 @@ public class App
             }
             
             // Query search engine
-            QuerySearch querySearch = new QuerySearch(nbDocProcessed);
+            QuerySearch querySearch = new QuerySearch(nbDocProcessed, stemFlag);
             while(true){
-                String queryMsg = "\n\nPlease enter your query. If you want to exit, please enter exit.";
+                String queryMsg = "\n\nPlease enter your query. If you want to exit, please enter -1.";
                 System.out.println(queryMsg);
                 Scanner sc = new Scanner(System.in);
                 String query = sc.nextLine();
-                if(query.equals("exit")){
+                if(query.equals("-1")){
                     break;
                 }
                 else{
@@ -150,12 +154,13 @@ public class App
                     String typeQuery = "";
                     String queryMsg2 = "\nPlease enter the type of the query. Please enter `1` for a conjunctive query, `2` for a disjunctive query.";
                     System.out.println(queryMsg2);
+
                     // Verify that the user enters a number
                     while(true){
-                        Scanner sc2 = new Scanner(System.in);
-                        String answer2 = sc2.nextLine();
+                        Scanner sc5 = new Scanner(System.in);
+                        String answer2 = sc5.nextLine();
                         // Verify that the user enters a number                    
-                        try{
+                        //try{
                             int typeQueryInt = Integer.parseInt(answer2);
                             if(typeQueryInt == 1){
                                 typeQuery = "conjunctive";
@@ -168,16 +173,19 @@ public class App
                             else{
                                 System.out.println("Please enter `1` or `2`");
                             }
-                        }
-                        catch(NumberFormatException e){
-                            System.out.println("Please enter `1` or `2`");
-                        }
+                        //}
+                        // catch(NumberFormatException e){
+                        //     System.out.println("Please enter 1 or 2");
+                        // }
                     }
                     // Beginning of the search
                     Long startTime = System.nanoTime();
-                    querySearch.executeQuery(typeQuery, query, stemFlag);
+                    String typeScore = "okapibm25"; //"tfidf", "okapibm25".
+                    querySearch.executeQuery(typeQuery, query, stemFlag, typeScore);
                     Long endTime = System.nanoTime();
-                    System.out.println("\nQuery processed in " + (endTime - startTime)/1000000000 + " seconds.");
+                    // in milliseconds
+                    System.out.println("Search done in " + (endTime - startTime)/1000000 + " milliseconds");
+                    //System.out.println("Query processed in " + (endTime - startTime)/1000000000 + " seconds");
 
                     String msg = "\n\nDo you want to print the relevant documents? Please enter y or n.";
                     System.out.println(msg);
@@ -198,6 +206,7 @@ public class App
                     querySearch.closeList();
                 }
             }
+
         }
         catch(Exception e){
             System.err.println("Error: " + e.getMessage());
