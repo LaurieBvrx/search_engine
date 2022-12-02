@@ -5,6 +5,7 @@ import java.util.*;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.LineIterator;
 import java.nio.ByteBuffer;
+import opennlp.tools.stemmer.PorterStemmer;
 
 
 public class Indexer{
@@ -46,7 +47,7 @@ public class Indexer{
         // Create the file "DocumentIndex.txt"
         this.docIndexFile = new File("DocumentIndex.txt");
     }
- 
+
     public static String preprocessingText(String text) throws UnsupportedEncodingException{
         byte[] bytes = text.getBytes("Windows-1252");
         // Decode the Windows-1252 or Latin-1 bytes back into UTF-8 to get the correct string
@@ -72,19 +73,19 @@ public class Indexer{
         for (Map.Entry<Integer, List<Integer>> entry : docIndexMap.entrySet()) {
             out.println(entry.getKey() + " " + entry.getValue().get(0) + " " + entry.getValue().get(1));
         }
-        out.close();        
+        out.close();
     }
 
-    public static int parseTsvFile(String collectionPath, int numberReadDoc) throws IOException{
+    public static int parseTsvFile(String collectionPath, int numberReadDoc, boolean stemFlag) throws IOException{
         try{
             if (numberReadDoc == -1){ // if we want to read all the documents
                 numberReadDoc = Integer.MAX_VALUE;
-            }           
+            }
             // Read the collection file
             File collectionFile = new File(collectionPath);
             LineIterator it = FileUtils.lineIterator(collectionFile, "UTF-8");
 
-            int numDocCurr = 0;   
+            int numDocCurr = 0;
             while (it.hasNext() && numDocCurr < numberReadDoc) { // For the whole collection
                 //Setting the initial memory
                 int totalMemory = (int) java.lang.Runtime.getRuntime().totalMemory();
@@ -96,45 +97,61 @@ public class Indexer{
 
                 // While there is free memory
                 while(usedMemory<0.95*totalMemory && it.hasNext() && numDocCurr < numberReadDoc){
-                    
+
                     totalMemory = (int) Runtime.getRuntime().totalMemory();
                     usedMemory = totalMemory - (int) Runtime.getRuntime().freeMemory();
-                    
+
                     // To keep track of the number of documents read
                     if (numDocCurr % 100000 == 0){
-                        System.out.println("Number of documents read: " + numDocCurr);           
+                        System.out.println("Number of documents read: " + numDocCurr);
                     }
 
                     String document = it.nextLine(); // one line = one document
                     String[] documentArray = document.split("\t"); // docNo and text are separated by a tabulation
-                    
+
                     // Information about the document
                     Integer docNo = Integer.parseInt(documentArray[0]);
                     String text = documentArray[1];
                     String preprocessedText = preprocessingText(text); // preprocess the text
                     String[] terms = preprocessedText.split(" "); // split the text into terms
-                    
+                    String stem;
+
                     int nbStopWords = 0; // to keep track of the number of stop words to have the correct document length
-                    for (String term : terms){
+                    for (String term : terms) {
                         // if term is in stopword list, skip it
-                        if (Arrays.asList(stopwordsList).contains(term) || term.length() == 0){
-                            nbStopWords++; 
+                        if (Arrays.asList(stopwordsList).contains(term) || term.length() == 0) {
+                            nbStopWords++;
                             continue;
-                        }                      
-                        // The posting list is a list of integer
+                        }
+
                         List<Integer> postingsList;
 
-                        if (dictionary.get(term) == null){
-                            //add the term to the dictionary and create a new posting list
-                            postingsList = new ArrayList<Integer>();
-                            dictionary.put(term, postingsList);
-                        }
-                        else{
-                            postingsList = dictionary.get(term);
+                        if (!stemFlag) {
+                            // The posting list is a list of integer
+                            if (dictionary.get(term) == null) {
+                                //add the term to the dictionary and create a new posting list
+                                postingsList = new ArrayList<Integer>();
+                                dictionary.put(term, postingsList);
+                            } else {
+                                postingsList = dictionary.get(term);
+                            }
+                        } else {
+                            // The posting list of a word stem
+                            PorterStemmer pStem = new PorterStemmer();
+                            stem = pStem.stem(term);
+
+                            if (dictionary.get(stem) == null) {
+                                //add the stem to the stem dictionary and create a new posting list for it
+                                postingsList = new ArrayList<Integer>();
+                                dictionary.put(stem, postingsList);
+                            } else {
+                                postingsList = dictionary.get(stem);
+                            }
                         }
                         postingsList.add(docid);
                     }
-                    // write to hashmap                    
+
+                    // write to hashmap
                     docIndexMap.put(docid, Arrays.asList(docNo, terms.length - nbStopWords));
                     // Write the document in the document index
                     //writerDocument.println(docid + "\t" + docNo + "\t" + (terms.length - nbStopWords));
@@ -150,11 +167,12 @@ public class Indexer{
             it.close(); // Close the iterator
         }
 
+
         catch(Exception e){
             System.err.println("Error: " + e.getMessage());
         }
         return docid; // Return the number of documents read
-    }   
+    }
 
     public static void sortAndWriteBlockToFile(Map<String, List<Integer>> dictionary) throws IOException{
         // Create blocks directory if does not exist
@@ -182,9 +200,9 @@ public class Indexer{
         lines.clear();
     }
     
-    public static void mergeBlocks() throws IOException{
+    public static void mergeBlocks(String filename) throws IOException{
 
-        PrintWriter writerLexicon = new PrintWriter("Lexicon.txt", "UTF-8");
+        PrintWriter writerLexicon = new PrintWriter(filename, "UTF-8");
 
         //Pointer to the files and info needed to merge the blocks
         List<File> collectionFile = new ArrayList<File>();

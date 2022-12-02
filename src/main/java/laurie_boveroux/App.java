@@ -33,10 +33,15 @@ public class App
         try{
             String fileName = "";
             String currentPath = new java.io.File(".").getCanonicalPath();
-            String dirData = currentPath + "\\data\\";
+            String dirData = currentPath + "/data/";
+            boolean stemFlag = false;
 
             // Extract the collection if the user wants to
-            String welcomeMsg = "Welcome in Search Engine \n You need to have your tar.gz file in the folder data\n Do you need to extract the collection ? Please enter y or n.";
+            String welcomeMsg = "\n\n================================================ Welcome to Search Engine ===============================================" +
+                                "\nPlease create a `data` folder in the root directory, containing the collection of documents to process." +
+                                "\nTo run this application smoothly, you may need the compressed `tar.gz` file in your `data` folder." +
+                                "\n=========================================================================================================================" +
+                                "\n\nDo you need to extract the collection? Please enter y or n.";
             System.out.println(welcomeMsg);
             while(true){
                 Scanner sc = new Scanner(System.in);
@@ -44,12 +49,12 @@ public class App
                 if(answer.equals("y")){
                     String compressedFileName = "collection.tar.gz";
                     fileName = extractTarGzFile(dirData + compressedFileName, dirData);
-                    System.out.println("The file " + fileName + " has been extracted in the folder data");
+                    System.out.println("\nThe file " + fileName + " has been extracted in the folder data.");
                     break;
                 }
                 else if(answer.equals("n")){
                     fileName = "collection.tsv";
-                    System.out.println("Ok, let's go");
+                    System.out.println("Ok, let's go!");
                     break;
                 }
                 else{
@@ -58,7 +63,9 @@ public class App
             }
 
             // Create the index and lexicon if needed
-            String indexMsg = "Do you need to create the index and the lexicon ? Please enter y or n.\n If n, we suppose that the indexes already exist (i.e. DocumentIndex.txt, InvertedIndexDocID.txt, InvertedIndexFreq.txt and Lexicon.txt).";
+            String indexMsg = "\n\nDo you need to create the index and the lexicon? Please enter y or n." +
+                              "\nIf `n`, we suppose that the indexes already exist. " +
+                              "\n(i.e. DocumentIndex.txt, InvertedIndexDocID.txt, InvertedIndexFreq.txt and Lexicon.txt)";
             System.out.println(indexMsg);
             int nbDocProcessed = 0;
             while(true){
@@ -66,8 +73,11 @@ public class App
                 String answer = sc.nextLine();
 
                 if(answer.equals("y")){
-                    System.out.println("How many documents do you want to process ? Please enter a number. If you want to process all the documents, please enter -1.");
+
+                    System.out.println("\n\nHow many documents do you want to process? Please enter a number." +
+                                       "\nIf you want to process all the documents, please enter -1.");
                     int nbDocToProcess = 0;
+
                     // Verify that the user enters a number
                     while(true){
                         Scanner sc2 = new Scanner(System.in);
@@ -77,39 +87,58 @@ public class App
                             break;
                         }
                         catch(NumberFormatException e){
-                            System.out.println("Please enter a number");
+                            System.out.println("Please enter a number.");
                         }
                         // Verify that the user enters a positive number
                         if (nbDocToProcess == -1 || nbDocToProcess > 0){
                             break;
                         }
                         else{
-                            System.out.println("Please enter a strictly positive number or -1");
+                            System.out.println("Please enter a strictly positive number or -1.");
                         }
                     }
                     // Create the index and the lexicon
                     Long startTime = System.nanoTime();
                     Indexer indexer = new Indexer();
-                    nbDocProcessed = indexer.parseTsvFile(dirData + fileName, nbDocToProcess); 
-                    indexer.mergeBlocks();
+
+                    String stemmingMsg = "\n\nWould you like to use stemming? Please enter y or n.";
+                    System.out.println(stemmingMsg);
+                    while(true){
+                        Scanner scStem = new Scanner(System.in);
+                        String answerStem = scStem.nextLine();
+                        if(answerStem.equals("y")){
+                            stemFlag = true;
+                            nbDocProcessed = indexer.parseTsvFile(dirData + fileName, nbDocToProcess, stemFlag);
+                            break;
+                        }else if(answerStem.equals("n")){
+                            stemFlag = false;
+                            nbDocProcessed = indexer.parseTsvFile(dirData + fileName, nbDocToProcess, stemFlag);
+                            break;
+                        }
+                        else{
+                            System.out.println("Please enter y or n.");
+                        }
+                        indexer.mergeBlocks("Lexicon.txt");
+                        System.out.println("\nThe lexicon has been generated.");
+                    }
                     Long endTime = System.nanoTime();
                     System.out.println("Index and lexicon created in " + (endTime - startTime)/1000000000 + " seconds");
                     break;
                 }
                 else if(answer.equals("n")){
                     nbDocProcessed = 8841822;
-                    System.out.println("Ok, let's go");
+                    System.out.println("Ok, let's go!");
                     break;
                 }
                 else{
-                    System.out.println("Please enter y or n");
+                    System.out.println("Please enter y or n.");
                 }
             }
             
             // Query search engine
             QuerySearch querySearch = new QuerySearch(nbDocProcessed);
             while(true){
-                String queryMsg = "Please enter your query. If you want to exit, please enter exit.";
+                String queryMsg = "\n\nPlease enter your query. If you want to exit, please enter exit.";
                 System.out.println(queryMsg);
                 Scanner sc = new Scanner(System.in);
                 String query = sc.nextLine();
@@ -119,7 +148,7 @@ public class App
                 else{
                     // Get the type of the query
                     String typeQuery = "";
-                    String queryMsg2 = "Please enter the type of the query. Please enter 1 for a conjunctive query, 2 for a disjunctive query.";
+                    String queryMsg2 = "\nPlease enter the type of the query. Please enter `1` for a conjunctive query, `2` for a disjunctive query.";
                     System.out.println(queryMsg2);
                     // Verify that the user enters a number
                     while(true){
@@ -137,20 +166,20 @@ public class App
                                 break;
                             }
                             else{
-                                System.out.println("Please enter 1 or 2");
+                                System.out.println("Please enter `1` or `2`");
                             }
                         }
                         catch(NumberFormatException e){
-                            System.out.println("Please enter 1 or 2");
+                            System.out.println("Please enter `1` or `2`");
                         }
                     }
                     // Beginning of the search
                     Long startTime = System.nanoTime();
-                    querySearch.executeQuery(typeQuery, query);
+                    querySearch.executeQuery(typeQuery, query, stemFlag);
                     Long endTime = System.nanoTime();
-                    System.out.println("Query processed in " + (endTime - startTime)/1000000000 + " seconds");
+                    System.out.println("\nQuery processed in " + (endTime - startTime)/1000000000 + " seconds.");
 
-                    String msg = "Do you want to print the relevant documents ? Please enter y or n.";
+                    String msg = "\n\nDo you want to print the relevant documents? Please enter y or n.";
                     System.out.println(msg);
                     while(true){
                         Scanner sc3 = new Scanner(System.in);
@@ -163,7 +192,7 @@ public class App
                             break;
                         }
                         else{
-                            System.out.println("Please enter y or n");
+                            System.out.println("Please enter y or n.");
                         }
                     }
                     querySearch.closeList();

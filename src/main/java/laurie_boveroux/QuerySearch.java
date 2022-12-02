@@ -1,5 +1,7 @@
 package laurie_boveroux;
 
+import opennlp.tools.stemmer.PorterStemmer;
+
 import java.io.*;
 import java.util.*;
 
@@ -18,7 +20,7 @@ public class QuerySearch{
 
 
     public QuerySearch(int nbDoc) throws FileNotFoundException{
-        this.lexicon = new ExternalBinarySearch(new File("lexicon.txt"));
+        this.lexicon = new ExternalBinarySearch(new File("Lexicon.txt"));
         this.numberDoc = nbDoc; // Number of documents in the collection (to compute TF-IDF)
         this.scoreList = new ArrayList<Integer>();
         this.docIdList = new ArrayList<Integer>();
@@ -163,15 +165,26 @@ public class QuerySearch{
         this.docIdList.clear();
     }
 
-    public void executeQuery(String typeQuery, String query) throws IOException {
+    public void executeQuery(String typeQuery, String query, boolean stemFlag) throws IOException {
 
         // Processing of the query
+        String[] queryStem = {""};
         query = Indexer.preprocessingText(query);
         String[] q = query.split(" ");
         int num = q.length;
         ListPointer[] lp = new ListPointer[num];
-        for (int i = 0; i < num; i++){
-            lp[i] = openList(q[i]);
+
+        PorterStemmer pStemQ = new PorterStemmer();
+        for (int i = 0; i < num; i++) {
+            if (Arrays.asList(Indexer.stopwordsList).contains(q[i]) || q[i].length() == 0) {
+                continue;
+            }
+            if (stemFlag){
+                lp[i] = openList(pStemQ.stem(q[i]));
+            }else {
+                lp[i] = openList(q[i]);
+            }
+
         }
 
         // sort the list pointers
