@@ -4,7 +4,10 @@ import java.io.*;
 import java.util.*;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.LineIterator;
+import opennlp.tools.stemmer.PorterStemmer;
 import java.nio.ByteBuffer;
+
+
 
 
 public class Indexer{
@@ -13,10 +16,12 @@ public class Indexer{
     public static int blockNumber;
     public static BufferedOutputStream invIndexDocidBuffer;
     public static BufferedOutputStream invIndexFreqBuffer;
-    public static int totalNbBytes;
-    // hash map for doc id : <docNo, length>
-    public static TreeMap<Integer, List<Integer>> docIndexMap;
-    public static File docIndexFile;
+    public static BufferedOutputStream docIndexBuffer;
+    public static BufferedOutputStream lexiconBuffer;
+    public static int totalInvIndexBytes;
+    public static int averageDocumentSize;
+    public static int docIndexBytes;
+    public static int lexiconBytes;
 
 
     public static String[] stopwordsList = { "a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any",
@@ -36,15 +41,17 @@ public class Indexer{
 				"you're", "you've", "your", "yours", "yourself", "yourselves", "s", "t", "re", "ve", "m", "ll", "d" };
 
 
-    public Indexer() throws FileNotFoundException{
+    public Indexer(String filenamelexicon) throws FileNotFoundException{
         this.docid = 0;
         this.blockNumber = 0;
         this.invIndexDocidBuffer = new BufferedOutputStream(new FileOutputStream("InvertedIndexDocid.txt"),4096 * 10000);
         this.invIndexFreqBuffer = new BufferedOutputStream(new FileOutputStream("InvertedIndexFreq.txt"),4096 * 10000);
-        this.totalNbBytes = 0;
-        this.docIndexMap = new TreeMap<Integer, List<Integer>>();
-        // Create the file "DocumentIndex.txt"
-        this.docIndexFile = new File("DocumentIndex.txt");
+        this.docIndexBuffer = new BufferedOutputStream(new FileOutputStream("DocumentIndex.txt"),4096 * 10000);
+        this.lexiconBuffer = new BufferedOutputStream(new FileOutputStream(filenamelexicon),4096 * 10000);
+        this.totalInvIndexBytes = 0;
+        this.averageDocumentSize = 0;
+        this.docIndexBytes = 0;
+        this.lexiconBytes = 0;
     }
  
     public static String preprocessingText(String text) throws UnsupportedEncodingException{
@@ -63,96 +70,121 @@ public class Indexer{
         preprocessedText = preprocessedText.toLowerCase();
         return preprocessedText;
     }
+    public static int parseTsvFile(String collectionPath, int numberReadDoc, boolean stemFlag) throws IOException{
 
-    public static void writeDocIndexMap() throws IOException{
-        // write to the file "DocumentIndex.txt" without erasing the previous content
-        FileWriter fw = new FileWriter(docIndexFile, true);
-        BufferedWriter bw = new BufferedWriter(fw);
-        PrintWriter out = new PrintWriter(bw);
-        for (Map.Entry<Integer, List<Integer>> entry : docIndexMap.entrySet()) {
-            out.println(entry.getKey() + " " + entry.getValue().get(0) + " " + entry.getValue().get(1));
-        }
-        out.close();        
-    }
+        if (numberReadDoc == -1){ // if we want to read all the documents
+            numberReadDoc = Integer.MAX_VALUE;
+        }           
+        // Read the collection file
+        File collectionFile = new File(collectionPath);
+        LineIterator it = FileUtils.lineIterator(collectionFile, "UTF-8");
 
-    public static int parseTsvFile(String collectionPath, int numberReadDoc) throws IOException{
-        try{
-            if (numberReadDoc == -1){ // if we want to read all the documents
-                numberReadDoc = Integer.MAX_VALUE;
-            }           
-            // Read the collection file
-            File collectionFile = new File(collectionPath);
-            LineIterator it = FileUtils.lineIterator(collectionFile, "UTF-8");
+        int numDocCurr = 0;   
+        while (it.hasNext() && numDocCurr < numberReadDoc) { // For the whole collection
+            //Setting the initial memory
+            int totalMemory = (int) java.lang.Runtime.getRuntime().totalMemory();
+            int usedMemory = totalMemory - (int) java.lang.Runtime.getRuntime().freeMemory();
 
-            int numDocCurr = 0;   
-            while (it.hasNext() && numDocCurr < numberReadDoc) { // For the whole collection
-                //Setting the initial memory
-                int totalMemory = (int) java.lang.Runtime.getRuntime().totalMemory();
-                int usedMemory = totalMemory - (int) java.lang.Runtime.getRuntime().freeMemory();
+            Map<String, List<Integer>> dictionary = new LinkedHashMap<String, List<Integer>>();
 
-                Map<String, List<Integer>> dictionary = new LinkedHashMap<String, List<Integer>>();
+            System.out.println("Block " + blockNumber + " in construction ");
 
-                System.out.println("New block in construction " + blockNumber);
+            // While there is free memory
+            while(usedMemory<0.95*totalMemory && it.hasNext() && numDocCurr < numberReadDoc){
+                
+                totalMemory = (int) Runtime.getRuntime().totalMemory();
+                usedMemory = totalMemory - (int) Runtime.getRuntime().freeMemory();
+                
+                // To keep track of the number of documents read
+                if (numDocCurr % 100000 == 0){
+                    System.out.println("Number of documents read: " + numDocCurr);           
+                }
 
-                // While there is free memory
-                while(usedMemory<0.95*totalMemory && it.hasNext() && numDocCurr < numberReadDoc){
-                    
-                    totalMemory = (int) Runtime.getRuntime().totalMemory();
-                    usedMemory = totalMemory - (int) Runtime.getRuntime().freeMemory();
-                    
-                    // To keep track of the number of documents read
-                    if (numDocCurr % 100000 == 0){
-                        System.out.println("Number of documents read: " + numDocCurr);           
+                String document = it.nextLine(); // one line = one document
+                String[] documentArray = document.split("\t"); // docNo and text are separated by a tabulation
+                
+                // Information about the document
+                Integer docNo = Integer.parseInt(documentArray[0]);
+                String text = documentArray[1];
+                String preprocessedText = preprocessingText(text); // preprocess the text
+                String[] terms = preprocessedText.split(" "); // split the text into terms
+                String stem;
+                PorterStemmer pStem = new PorterStemmer();
+
+                
+                int nbStopWords = 0; // to keep track of the number of stop words to have the correct document length
+                for (String term : terms) {
+                    // keep only the fisrt 64 bits of the term
+                    if (term.length() > 64){
+                        term = term.substring(0, 64);
                     }
-
-                    String document = it.nextLine(); // one line = one document
-                    String[] documentArray = document.split("\t"); // docNo and text are separated by a tabulation
-                    
-                    // Information about the document
-                    Integer docNo = Integer.parseInt(documentArray[0]);
-                    String text = documentArray[1];
-                    String preprocessedText = preprocessingText(text); // preprocess the text
-                    String[] terms = preprocessedText.split(" "); // split the text into terms
-                    
-                    int nbStopWords = 0; // to keep track of the number of stop words to have the correct document length
-                    for (String term : terms){
-                        // if term is in stopword list, skip it
-                        if (Arrays.asList(stopwordsList).contains(term) || term.length() == 0){
-                            nbStopWords++; 
-                            continue;
-                        }                      
+                    // if term is in stopword list, skip it
+                    if (Arrays.asList(stopwordsList).contains(term) || term.length() == 0) {
+                        nbStopWords++;
+                        continue;
+                    }
+                
+                    List<Integer> postingsList;
+                
+                    if (!stemFlag) {
                         // The posting list is a list of integer
-                        List<Integer> postingsList;
-
-                        if (dictionary.get(term) == null){
+                        if (dictionary.get(term) == null) {
                             //add the term to the dictionary and create a new posting list
                             postingsList = new ArrayList<Integer>();
                             dictionary.put(term, postingsList);
-                        }
-                        else{
+                        } else {
                             postingsList = dictionary.get(term);
                         }
-                        postingsList.add(docid);
+                    } else {
+                        // The posting list of a word stem
+                        stem = pStem.stem(term);
+                
+                        if (dictionary.get(stem) == null) {
+                            //add the stem to the stem dictionary and create a new posting list for it
+                            postingsList = new ArrayList<Integer>();
+                            dictionary.put(stem, postingsList);
+                        } else {
+                            postingsList = dictionary.get(stem);
+                        }
                     }
-                    // write to hashmap                    
-                    docIndexMap.put(docid, Arrays.asList(docNo, terms.length - nbStopWords));
-                    // Write the document in the document index
-                    //writerDocument.println(docid + "\t" + docNo + "\t" + (terms.length - nbStopWords));
-                    docid++;
-                    numDocCurr++;
+                    postingsList.add(docid);
                 }
-                writeDocIndexMap(); // write docIndexMap to file
-                docIndexMap.clear(); // clear the map
-                sortAndWriteBlockToFile(dictionary); //Sort and write the block to disk.
-                dictionary.clear(); // Clear the dictionary of the current block
-                System.gc(); // Garbage collector
+                // Write the document index
+                if (docIndexBytes >= 4096 * 10000 - 2*8){
+                    docIndexBuffer.flush();
+                    docIndexBytes = 0;
+                }else{
+                    docIndexBytes += 2*8;
+                    // docNo to bytes
+                    byte[] docNoBytes = ByteBuffer.allocate(4).putInt(docNo).array();
+                    docIndexBuffer.write(docNoBytes);
+                    // docLength to bytes
+                    byte[] docLengthBytes = ByteBuffer.allocate(4).putInt(terms.length - nbStopWords).array();
+                    docIndexBuffer.write(docLengthBytes);
+                }
+            
+                // Write the document in the document index
+                docid++;
+                numDocCurr++;
+                averageDocumentSize += terms.length - nbStopWords;
             }
-            it.close(); // Close the iterator
+            sortAndWriteBlockToFile(dictionary); //Sort and write the block to disk.
+            dictionary.clear(); // Clear the dictionary of the current block
+            System.gc(); // Garbage collector
         }
+        it.close(); // Close the iterator
+        docIndexBuffer.close();
+        docIndexBuffer.flush();
+        averageDocumentSize = averageDocumentSize / docid;
 
-        catch(Exception e){
-            System.err.println("Error: " + e.getMessage());
-        }
+        // write data needed for scoring
+        String averageDocumentSizeString = Integer.toString(averageDocumentSize);
+        String docidString = Integer.toString(docid);
+        String metaDataFile = "metaDataCollection.txt";
+        FileWriter myWriter = new FileWriter(metaDataFile);
+        myWriter.write(averageDocumentSizeString + " " + docidString);
+        myWriter.close();
+
         return docid; // Return the number of documents read
     }   
 
@@ -183,8 +215,8 @@ public class Indexer{
     }
     
     public static void mergeBlocks() throws IOException{
-
-        PrintWriter writerLexicon = new PrintWriter("Lexicon.txt", "UTF-8");
+        System.out.println("Starting to merge blocks");
+        long startTimeMerge = System.currentTimeMillis();
 
         //Pointer to the files and info needed to merge the blocks
         List<File> collectionFile = new ArrayList<File>();
@@ -193,8 +225,6 @@ public class Indexer{
         List<String> postingArray = new ArrayList<String>();
         List<Boolean> finishBlock = new ArrayList<Boolean>();
 
-        // HARDCODE !!!!!!
-        //blockNumber = 8;
         // initialize the pointers to the files and the info needed to merge the blocks
         for (int i=0; i<blockNumber; i++){
             collectionFile.add(new File("blocks/block"+i+".txt"));
@@ -207,7 +237,7 @@ public class Indexer{
 
         int startPostList = 0; // to keep track of the start of the posting list in the inverted index
         // While all the blocks are not finished
-        while (finishBlock.contains(false)){
+        while (finishBlock.contains(false)){            
             int byteWritten = 0; // to keep track of the number of bytes written in the inverted index
 
             // Find all the indexes (i.e. number of the block) that have the smaller term 
@@ -248,28 +278,57 @@ public class Indexer{
                 }
             }
             int endPostList = byteWritten; // to keep track of the end of the posting list in the inverted index
-            writerLexicon.println(minTerm + " "+ startPostList);
 
+            // write the term in the tab
+            if (lexiconBytes >= 4096 * 10000 *0.95){
+                lexiconBuffer.flush();
+                lexiconBytes = 0;
+            }else{
+                byte[] termBytes = stringTo64Bytes(minTerm);
+                byte[] startPostListBytes = ByteBuffer.allocate(4).putInt(startPostList).array();
+                lexiconBuffer.write(termBytes);
+                lexiconBuffer.write(startPostListBytes);
+            }
             startPostList = startPostList + endPostList;
         }
 
         writeToFile(); // write the last buffer to the inverted index
-        writerLexicon.println("\n");
-        writerLexicon.close();
+        lexiconBuffer.flush();
+        lexiconBuffer.close();
         invIndexDocidBuffer.close();
         invIndexFreqBuffer.close();
+        long endTimeMerge = System.currentTimeMillis();
+        System.out.println("Time to merge blocks : " + (endTimeMerge - startTimeMerge) + " ms");
         
+    }
+
+    private static  byte[] stringTo64Bytes(String s){
+        byte[] bytes = new byte[64];
+        byte[] sBytes = s.getBytes();
+        if (sBytes.length > 64){
+            // keep the first 64 bytes by copy
+            System.arraycopy(sBytes, 0, bytes, 0, 64);
+        }else{
+            // copy the bytes of the string
+            System.arraycopy(sBytes, 0, bytes, 0, sBytes.length);
+            // fill the rest with 0
+            for (int i=sBytes.length; i<64; i++){
+                bytes[i] = 0;
+            }
+        }
+        return bytes;
     }
 
     public static int reduceAndWritePostingList(String[] postingsString) throws IOException{
         /* Reduce the posting list: remove duplicates and add the frequencies 
          * Return the number of bytes written in the inverted index
          */
-        int writtenBytes = 0;
+        int writtenBytesPost = 0;
         // if invIndexDocidBuffer is full, write it to the file
         // (avoid to write too often and slow down the process)   
-        if (totalNbBytes >= 4096 * 10000){
+        if (totalInvIndexBytes >= 4096 * 10000){
             writeToFile();
+            totalInvIndexBytes = 0;
         }
 
         int i = 0;
@@ -283,18 +342,7 @@ public class Indexer{
                 i++;
             }
 
-            // // convert currDocId into 4 bytes
-            // byte[] bytesDocID = ByteBuffer.allocate(4).putInt(Integer.parseInt(currDocId)).array();
-            // invIndexDocidBuffer.write(bytesDocID);            
-            // // convert currFreq into 4 bytes
-            // byte[] bytesFreq = ByteBuffer.allocate(4).putInt(count).array();
-            // invIndexFreqBuffer.write(bytesFreq);
-            // // Keep track of the number of bytes written
-            // totalNbBytes += 4; // to know if the buffer is full
-            // writtenBytes += 4; // to know when a posting list ends
-
-
-            // Compressed Inverted Index
+            // Compressed Inverted Index with VB Encode
             List<Integer> encodedDocId = new ArrayList<Integer>();
             List<Integer> encodedFreq = new ArrayList<Integer>();
             int currDocIdInt = Integer.parseInt(currDocId);
@@ -303,7 +351,7 @@ public class Indexer{
             if (currDocIdInt > count){ // if the docid is greater than the frequency, adapt the frequency
                 encodedDocId = VBEncodeNumber(currDocIdInt);
                 VBEncode(encodedDocId, true);
-                len = encodedDocId.size();
+                len = encodedDocId.size();             
                 encodedFreq = VBEncodeNumber(count);
                 while (encodedFreq.size() < len){
                     encodedFreq.add(0);
@@ -320,17 +368,17 @@ public class Indexer{
                 }
                 VBEncode(encodedDocId, true);
             }
-            totalNbBytes += len; // to know if the buffer is full
-            writtenBytes += len; // to know when a posting list ends
+            totalInvIndexBytes += len; // to know if the buffer is full
+            writtenBytesPost += len; // to know when a posting list ends
         }
-        return writtenBytes;
+        return writtenBytesPost;
     }
 
     public static void writeToFile() throws IOException{
         // Write the buffer to the file
         invIndexDocidBuffer.flush();
         invIndexFreqBuffer.flush();
-        totalNbBytes = 0;
+        totalInvIndexBytes = 0;
     }
 
     public static List<Integer> VBEncodeNumber(Integer n){
@@ -366,7 +414,7 @@ public class Indexer{
             else{
                 invIndexFreqBuffer.write(Integer.parseInt(binary, 2));
             }
-            len += binary.length();
+            len += 1; //binary.length();
         }
         return len;
     }

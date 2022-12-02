@@ -7,28 +7,44 @@ import java.util.*;
 
 class ExternalBinarySearch {
     final RandomAccessFile file;
-    final Comparator<String> test; // tests the element given as search parameter with the line. Insert a PrefixComparator here
+    //final StringComparator test; // tests the element given as search parameter with the line. Insert a PrefixComparator here
 
     public ExternalBinarySearch(File f) throws FileNotFoundException {
         this.file = new RandomAccessFile(f, "r");
-        this.test = new StringComparator();
+        //this.test = new StringComparator();
     }
 
     // String comparator
-    public static class StringComparator implements Comparator<String> {
-        @Override
-        public int compare(String s1, String s2) {
+    //public static class StringComparator {
+        public int compare(byte[] s1, String s2) {
+            // word = à to len - 5
+            byte[] s1Word = subArray(s1, 0, s1.length - 5);
+            String word = new String(s1Word);
+            
+            System.out.println("----------------");
+            System.out.println("s1: " + s1);
+            System.out.println("s2: " + s2);
+
+            // remove last 5 bytes of s1
+            //String word = s1.substring(0, s1.length() - 5);
+            // System.out.println("s1Prime: " + s1Prime);
+            // byte[] s1PrimeBytes = s1Prime.getBytes();
+            // System.out.println("s1PrimeBytes: " + s1PrimeBytes);
+            // String s1BIs = new String(s1PrimeBytes);
+            // System.out.println("s1BIs: " + s1BIs);
             // s1 is the line
             // split the line
-            String[] split = s1.split(" ");
+            //String[] split = s1.split(" ");
             // get the first element
-            String word = split[0];
+            //String word = split[0];
+            //String to bytes to string
+            //String word = s1BIs;
             // s2 is the element
             return word.compareTo(s2);
         }
-    }
+    //}
 
-    public String search(String element) throws IOException {
+    public List<byte[]> search(String element) throws IOException {
         long l = file.length();
         return search(element, -1, l-1);
     }
@@ -36,48 +52,65 @@ class ExternalBinarySearch {
      * Searches the given element in the range [low,high]. The low value of -1 is a special case to denote the beginning of a file.
      * In contrast to every other line, a line at the beginning of a file doesn't need a \n directly before the line
      */
-    private String search(String element, long low, long high) throws IOException {
+    private List<byte[]> search(String element, long low, long high) throws IOException {
         if(high - low < 1024) {
             // search directly
             long p = low;
             while(p < high) {
-                String line = nextLine(p);
-                int r = test.compare(line,element);
+                byte[] line = nextLine(p);
+                int r = compare(line,element);
                 if(r > 0) {
                     return null;
                 } else if (r < 0) {
-                    p += line.length();
+                    p += line.length;
                 } else {
                     // get the next line
-                    String nextLine = nextLine(p + line.length());
+                    byte[] nextLine = nextLine(p + line.length);
                     if (nextLine == null) {
-                        return line;
+                        List<byte[]> result = new ArrayList<byte[]>();
+                        result.add(line);
+                        return result;
+                        //return line;
                     }
                     // concatenate the two lines
-                    return line + nextLine;
+                    
+                    // return result and line.len
+                    List<byte[]> list = new ArrayList<byte[]>();
+                    list.add(line);
+                    list.add(nextLine);
+                    return list;
+                    //return line + nextLine;
                 }
             }
             return null;
         } else {
             long m  = low + ((high - low) / 2);
-            String line = nextLine(m);
-            int r = test.compare(line, element);
+            byte[] line = nextLine(m);
+            int r = compare(line, element);
             if(r > 0) {
                 return search(element, low, m);
             } else if (r < 0) {
                 return search(element, m, high);
             } else {
                 // get the next line
-                String nextLine = nextLine(m + line.length());
+                byte[] nextLine = nextLine(m + line.length);
                 if (nextLine == null) {
-                    return line;
-                }
-                // concatenate the two lines
-                return line + nextLine;
+                    List<byte[]> result = new ArrayList<byte[]>();
+                    result.add(line);
+                    return result;
+                    //return line;
+                }            
+                // return result and line.len
+                List<byte[]> list = new ArrayList<byte[]>();
+                list.add(line);
+                list.add(nextLine);
+                return list;
+                //return result;
+                //return line + nextLine;
             }
         }
     }
-    private String nextLine(long low) throws IOException {
+    private byte[] nextLine(long low) throws IOException {
         // if we are at the end of the file
         if (low == file.length() - 1) {
             return null;
@@ -92,13 +125,13 @@ class ExternalBinarySearch {
         byte[] buffer = new byte[bufferLength];
         int r = file.read(buffer);
         int lineBeginIndex = -1;
-    
+
         // search beginning of line
         if(low == -1) { //beginning of file
             lineBeginIndex = 0;
         } else {
             //normal mode
-            for(int i = 0; i < 1024; i++) {
+            for(int i = 1; i < 1024; i++) {
                 if(buffer[i] == '\n') {
                     lineBeginIndex = i + 1;
                     break;
@@ -110,14 +143,24 @@ class ExternalBinarySearch {
             return null;
         }
         int start = lineBeginIndex;
-            for(int i = start; i < r; i++) {
+            for(int i = start+1; i < r; i++) {
                 if(buffer[i] == '\n') {
                     // Found end of line
-                    return new String(buffer, lineBeginIndex, i - lineBeginIndex + 1);
-                    //return line.toString();
+                    //return new String(buffer, lineBeginIndex, i - lineBeginIndex + 1);
+                    // return subArray
+                    System.out.println("coucou");
+                    return subArray(buffer, lineBeginIndex, i - lineBeginIndex + 1);
                 }
             }
             throw new IllegalArgumentException("Line to long");
+
+    }
+    private static byte[] subArray(byte[] buffer, int lineBeginIndex, int i) {
+        byte[] subArray = new byte[i];
+        for (int j = 0; j < subArray.length; j++) {
+            subArray[j] = buffer[lineBeginIndex + j];
+        }
+        return subArray;
 
     }
     }
