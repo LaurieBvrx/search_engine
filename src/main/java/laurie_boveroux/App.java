@@ -99,7 +99,7 @@ public class App
                         if(answerStem.equals("y")){
                             stemFlag = true;
                             startTime = System.nanoTime();
-                            nbDocProcessed = indexer.parseTsvFile(dirData + fileName, nbDocToProcess, stemFlag);
+                            indexer.parseTsvFile(dirData + fileName, nbDocToProcess, stemFlag);
                             indexer.mergeBlocks();
                             long endTime = System.nanoTime();
                             long duration = (endTime - startTime)/1000000000;
@@ -108,7 +108,7 @@ public class App
                         }else if(answerStem.equals("n")){
                             stemFlag = false;
                             startTime = System.nanoTime();
-                            nbDocProcessed = indexer.parseTsvFile(dirData + fileName, nbDocToProcess, stemFlag);
+                            indexer.parseTsvFile(dirData + fileName, nbDocToProcess, stemFlag);
                             indexer.mergeBlocks();
                             long endTime = System.nanoTime();
                             long duration = (endTime - startTime)/1000000000;

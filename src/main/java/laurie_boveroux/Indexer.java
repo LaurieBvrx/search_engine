@@ -70,7 +70,8 @@ public class Indexer{
         preprocessedText = preprocessedText.toLowerCase();
         return preprocessedText;
     }
-    public static int parseTsvFile(String collectionPath, int numberReadDoc, boolean stemFlag) throws IOException{
+    
+    public static void parseTsvFile(String collectionPath, int numberReadDoc, boolean stemFlag) throws IOException{
 
         if (numberReadDoc == -1){ // if we want to read all the documents
             numberReadDoc = Integer.MAX_VALUE;
@@ -153,17 +154,13 @@ public class Indexer{
                 if (docIndexBytes >= 4096 * 10000 - 2*8){
                     docIndexBuffer.flush();
                     docIndexBytes = 0;
-                }else{
-                    docIndexBytes += 2*8;
-                    // docNo to bytes
-                    byte[] docNoBytes = ByteBuffer.allocate(4).putInt(docNo).array();
-                    docIndexBuffer.write(docNoBytes);
-                    // docLength to bytes
-                    byte[] docLengthBytes = ByteBuffer.allocate(4).putInt(terms.length - nbStopWords).array();
-                    docIndexBuffer.write(docLengthBytes);
                 }
+                docIndexBytes += 2*4;                    
+                byte[] docNoBytes = ByteBuffer.allocate(4).putInt(docNo).array();
+                docIndexBuffer.write(docNoBytes);
+                byte[] docLengthBytes = ByteBuffer.allocate(4).putInt(terms.length - nbStopWords).array();
+                docIndexBuffer.write(docLengthBytes);
             
-                // Write the document in the document index
                 docid++;
                 numDocCurr++;
                 averageDocumentSize += terms.length - nbStopWords;
@@ -172,9 +169,9 @@ public class Indexer{
             dictionary.clear(); // Clear the dictionary of the current block
             System.gc(); // Garbage collector
         }
-        it.close(); // Close the iterator
-        docIndexBuffer.close();
+        it.close(); // Close the iterator         
         docIndexBuffer.flush();
+        docIndexBuffer.close();
         averageDocumentSize = averageDocumentSize / docid;
 
         // write data needed for scoring
@@ -184,8 +181,6 @@ public class Indexer{
         FileWriter myWriter = new FileWriter(metaDataFile);
         myWriter.write(averageDocumentSizeString + " " + docidString);
         myWriter.close();
-
-        return docid; // Return the number of documents read
     }   
 
     public static void sortAndWriteBlockToFile(Map<String, List<Integer>> dictionary) throws IOException{
@@ -279,7 +274,7 @@ public class Indexer{
             }
             int endPostList = byteWritten; // to keep track of the end of the posting list in the inverted index
 
-            // write the term in the tab
+            // write the term and the offset in the lexicon
             if (lexiconBytes >= 4096 * 10000 *0.95){
                 lexiconBuffer.flush();
                 lexiconBytes = 0;
@@ -292,12 +287,16 @@ public class Indexer{
             startPostList = startPostList + endPostList;
         }
 
-        writeToFile(); // write the last buffer to the inverted index
+        writeToFileInvertedIndex(); // write the last buffer to the inverted index
         lexiconBuffer.flush();
         lexiconBuffer.close();
         invIndexDocidBuffer.close();
         invIndexFreqBuffer.close();
         long endTimeMerge = System.currentTimeMillis();
+
+        // delete the directory blocks
+        //FileUtils.deleteDirectory(new File("blocks"));
+
         System.out.println("Time to merge blocks : " + (endTimeMerge - startTimeMerge) + " ms");
         
     }
@@ -327,7 +326,7 @@ public class Indexer{
         // if invIndexDocidBuffer is full, write it to the file
         // (avoid to write too often and slow down the process)   
         if (totalInvIndexBytes >= 4096 * 10000){
-            writeToFile();
+            writeToFileInvertedIndex();
             totalInvIndexBytes = 0;
         }
 
@@ -374,7 +373,7 @@ public class Indexer{
         return writtenBytesPost;
     }
 
-    public static void writeToFile() throws IOException{
+    public static void writeToFileInvertedIndex() throws IOException{
         // Write the buffer to the file
         invIndexDocidBuffer.flush();
         invIndexFreqBuffer.flush();
