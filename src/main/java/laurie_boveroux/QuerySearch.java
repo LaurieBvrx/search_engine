@@ -50,17 +50,21 @@ public class QuerySearch{
         }
         // Get the offset (start) of the posting list
         byte[] termStartBytes = (byte[]) line.get(0);
-        byte[] startBytes = Arrays.copyOfRange(termStartBytes, 64, 68);
-        int start = ByteBuffer.wrap(startBytes).getInt();
+        byte[] startBytesId = Arrays.copyOfRange(termStartBytes, 64, 68);
+        int startId = ByteBuffer.wrap(startBytesId).getInt();
+        byte[] startBytesFreq = Arrays.copyOfRange(termStartBytes, 68, 72);
+        int startFreq = ByteBuffer.wrap(startBytesFreq).getInt();
 
         if (line.size() == 1) { // Last term of the lexicon (no end for the posting list)            
-            return new ListPointer(start, -1, fileDocIds, fileFreqs);        
+            return new ListPointer(startId, startFreq, -1, -1, fileDocIds, fileFreqs);        
         }else{   
             // Get the end of the posting list         
             byte[] termEndBytes = (byte[]) line.get(1);
             byte[] endBytes = Arrays.copyOfRange(termEndBytes, 64, 68);
-            int end = ByteBuffer.wrap(endBytes).getInt();
-            return new ListPointer(start, end, fileDocIds, fileFreqs);
+            int endId = ByteBuffer.wrap(endBytes).getInt();
+            byte[] endBytesFreq = Arrays.copyOfRange(termEndBytes, 68, 72);
+            int endFreq = ByteBuffer.wrap(endBytesFreq).getInt();
+            return new ListPointer(startId, startFreq, endId, endFreq, fileDocIds, fileFreqs);
         }
     }
 
@@ -158,6 +162,8 @@ public class QuerySearch{
             String text = documentArray[1];
             System.out.println("Document " + docNo + " with score " + this.scoreOrderedList.get(i) + " : \n" + text);
         }
+        // close all the list pointers
+        closeList();
     }
 
     public void closeList(){
@@ -210,8 +216,6 @@ public class QuerySearch{
         
         fileDocIds.close();
         fileFreqs.close();
-
-        ;
 
         if (lp.size() == 0){
             System.out.println("No result found");
@@ -270,15 +274,14 @@ public class QuerySearch{
                 if (tmpMaxDocId > maxDocId) {
                     maxDocId = tmpMaxDocId;
                 }
-            }
-            
+            }            
             
             int did =0;
             while (did <= maxDocId){
                 int[] tf = new int[num]; // term frequencies array
                 int[] df = new int[num]; // document frequencies array
                 int nbTerm = 0;
-                // print doc id and num
+
                 for (int i=0; i<num; i++) {
                     int d = next(lp.get(i));
                     if (d == did){
@@ -326,8 +329,6 @@ public class QuerySearch{
         System.out.println("ids   : " + this.docIdList);
         System.out.println("scores : " + scoreOrderedList);
 
-        // close all the list pointers
-        closeList();
     }
     
     public List<Integer> getDocNo() throws IOException{

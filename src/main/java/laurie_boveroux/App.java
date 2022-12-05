@@ -195,6 +195,7 @@ public class App
                         }
                     }
                     querySearch.closeList();
+                    
                 }
             }
             

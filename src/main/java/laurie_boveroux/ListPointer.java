@@ -5,28 +5,35 @@ import java.util.*;
 
 public class ListPointer{
 
-    private int startIndex;
-    private int endIndex;
-    private int lengthBytes;
+    private int startIndexId;
+    private int startIndexFreq;
+    private int endIndexId;
+    private int endIndexFreq;
+    private int lengthBytesId;
+    private int lengthBytesFreq;
     private List<Integer> docIdsArray;
     private List<Integer> freqsArray;
     private int index;
     private int nbRelevantDocs;
 
 
-    public ListPointer(int startIndex,int endIndex, RandomAccessFile fileDocIds, RandomAccessFile fileFreqs) throws IOException {
+    public ListPointer(int startIndexId, int startIndexFreq, int endIndexId, int endIndexFreq, RandomAccessFile fileDocIds, RandomAccessFile fileFreqs) throws IOException {
 
-        this.startIndex = startIndex;
-        if (endIndex == -1){
-            this.endIndex = (int) fileDocIds.length();
+        this.startIndexId = startIndexId;
+        this.startIndexFreq = startIndexFreq;
+        if (endIndexId == -1){
+            this.endIndexId = (int) fileDocIds.length();
+            this.endIndexFreq = (int) fileFreqs.length();
         }
         else{
-            this.endIndex = endIndex;
+            this.endIndexId = endIndexId;
+            this.endIndexFreq = endIndexFreq;
         }
-        this.lengthBytes = this.endIndex - this.startIndex;
+        this.lengthBytesId = this.endIndexId - this.startIndexId;
+        this.lengthBytesFreq = this.endIndexFreq - this.startIndexFreq;
         this.index = 0;
-        this.docIdsArray = getDocIdArray(this.lengthBytes, this.startIndex, fileDocIds);
-        this.freqsArray = getFreqArray(this.lengthBytes, this.startIndex, fileFreqs);  
+        this.docIdsArray = getDocIdArray(this.lengthBytesId, this.startIndexId, fileDocIds);
+        this.freqsArray = getFreqArray(this.lengthBytesFreq, this.startIndexFreq, fileFreqs);  
         this.nbRelevantDocs = this.docIdsArray.size();
     }
 
@@ -100,5 +107,13 @@ public class ListPointer{
             result.add(Integer.parseInt(intermediateNumber,2));
         }
         return result;        
+    }
+
+    private static int minBytesToInt(byte[] bytes) {
+        int value = 0;
+        for (int i = 0; i < bytes.length; i++) {
+            value += (bytes[i] & 0xFF) * Math.pow(256, i);
+        }
+        return value;
     }
 }
