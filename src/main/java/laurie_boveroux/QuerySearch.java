@@ -20,7 +20,7 @@ public class QuerySearch{
 
     public QuerySearch(int nbDoc) throws IOException{
         this.lexicon = new BinarySearch(new File("Lexicon.txt"));
-        this.scoreList = new ArrayList<Integer>();
+        this.scoreList = new ArrayList<Double>();
         this.docIdList = new ArrayList<Integer>();
 
         // Open file metaDataCollection.txt and read all the file
@@ -141,7 +141,7 @@ public class QuerySearch{
     public void printRelevantDocs() throws IOException{
         /* print the 10 most relevant documents */
         int size = this.scoreList.size();
-        System.out.println("The " + size + " most relevant documents are: \n");
+        System.out.println("\t>> The \u001B[33m" + size + "\u001B[0m most relevant documents are: \n");
         for (int i = 0; i < size; i++){
             String line = "";
             int docID = this.docIdList.get(i);
@@ -151,7 +151,7 @@ public class QuerySearch{
             String[] documentArray = line.split("\t"); // docNo and text are separated by a tabulation               
             Integer docNo = Integer.parseInt(documentArray[0]);
             String text = documentArray[1];
-            System.out.println("Document " + docNo + " with score " + this.scoreList.get(i) + " : \n" + text);
+            System.out.println("\tDocument \u001B[35m" + docNo + "\u001B[0m with score \u001B[35m" + this.scoreList.get(i) + "\u001B[0m: \n" + text);
         }
     }
 
@@ -202,11 +202,11 @@ public class QuerySearch{
         num = list.size();
 
         if (num == 0){
-            System.out.println("No result found");
+            System.out.println("\n\t\033[3mNo result found...\033[0m");
             return;
         }
         // print num of terms in the query
-        System.out.println("Number of terms in the query: " + num);
+        System.out.println("\t> Number of terms in the query: \u001B[34m" + num + "\u001B[0m");
 
         // find the min max doc id among all the list pointers
         int minMaxDocId = list.get(0).getMaxDocId();
@@ -292,7 +292,7 @@ public class QuerySearch{
             }           
         }
         else{
-            System.out.println("Error: type of query not recognized");
+            System.out.println("\u001B[31m! Error: type of query not recognized !\u001B[0m");
         }
 
         Double currScore = (double) 0;
@@ -307,12 +307,12 @@ public class QuerySearch{
             // replace the score by -1
             this.scoreList.set(index, (double) -1);
         }
-        System.out.println("ids ordered : " + docIdOrderedList);
+        System.out.println("\t> IDs ordered: \u001B[34m" + docIdOrderedList + "\u001B[0m");
         // Get docNo from docId
         List<Integer> docNoList = getDocNo();
-        System.out.println("docNo : " + docNoList);
-        System.out.println("ids   : " + this.docIdList);
-        System.out.println("scores : " + scoreOrderedList);
+        System.out.println("\t> DocNo: \u001B[34m" + docNoList + "\u001B[0m");
+        System.out.println("\t> IDs: \u001B[34m" + this.docIdList + "\u001B[0m");
+        System.out.println("\t> Scores: \u001B[34m" + scoreOrderedList + "\u001B[0m");
     }
     
     public List<Integer> getDocNo() throws IOException{

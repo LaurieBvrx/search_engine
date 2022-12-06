@@ -22,7 +22,7 @@ public class ListPointer{
         String IdPath = currentPath + "/InvertedIndexDocid.txt";
         RandomAccessFile fileDocIds = new RandomAccessFile(IdPath, "r");
         long lenDoc = fileDocIds.length();
-        System.out.println("lenDoc inverted index docId : " + lenDoc);
+        System.out.println("\n\t> lenDoc inverted index docId: \u001B[34m" + lenDoc + "\u001B[0m");
         // File for the frequencies of the posting lists
         String freqs = currentPath + "/InvertedIndexFreq.txt";
         RandomAccessFile fileFreqs = new RandomAccessFile(freqs, "r");

@@ -37,11 +37,11 @@ public class App
             boolean stemFlag = false;
 
             // Extract the collection if the user wants to
-            String welcomeMsg = "\n\n================================================ Welcome to Search Engine ===============================================" +
-                                "\nPlease create a `data` folder in the root directory, containing the collection of documents to process." +
-                                "\nTo run this application smoothly, you may need the compressed `tar.gz` file in your `data` folder." +
-                                "\n=========================================================================================================================" +
-                                "\n\nDo you need to extract the collection? Please enter y or n.";
+            String welcomeMsg = "\n\n\u001B[36m================================================\u001B[32m Welcome to Search Engine \u001B[36m================================================\u001B[0m" +
+                                "\nPlease create a \u001B[33mdata\u001B[0m folder in the root directory, containing the collection of documents to process." +
+                                "\nTo run this application smoothly, you may need the compressed \u001B[33mtar.gz\u001B[0m file in your `data` folder." +
+                                "\n\u001B[36m==========================================================================================================================\u001B[0m" +
+                                "\n\n=> Do you need to extract the collection? Please enter \u001B[33my\u001B[0m or \u001B[33mn\u001B[0m.";
             System.out.println(welcomeMsg);
             while(true){
                 Scanner sc = new Scanner(System.in);
@@ -49,7 +49,7 @@ public class App
                 if(answer.equals("y")){
                     String compressedFileName = "collection.tar.gz";
                     fileName = extractTarGzFile(dirData + compressedFileName, dirData);
-                    System.out.println("\nThe file " + fileName + " has been extracted in the folder data.");
+                    System.out.println("\nThe file \u001B[35m" + fileName + "\u001B[0m has been extracted in the folder `data`.");
                     break;
                 }
                 else if(answer.equals("n")){
@@ -58,14 +58,14 @@ public class App
                     break;
                 }
                 else{
-                    System.out.println("Please enter y or n");
+                    System.out.println("Please enter \u001B[33my\u001B[0m or \u001B[33mn\u001B[0m");
                 }
             }
 
             // Create the index and lexicon if needed
-            String indexMsg = "\n\nDo you need to create the index and the lexicon? Please enter y or n." +
-                              "\nIf `n`, we suppose that the indexes already exist. " +
-                              "\n(i.e. DocumentIndex.txt, InvertedIndexDocID.txt, InvertedIndexFreq.txt and Lexicon.txt)";
+            String indexMsg = "\n\n=> Do you need to create the index and the lexicon? Please enter \u001B[33my\u001B[0m or \u001B[33mn\u001B[0m." +
+                              "\n\t\033[3mIf \u001B[33mn\u001B[97m, we suppose that the indexes already exist." +
+                              "\n\t(i.e. DocumentIndex.txt, InvertedIndexDocID.txt, InvertedIndexFreq.txt and Lexicon.txt)\033[0m";
             System.out.println(indexMsg);
             int nbDocProcessed = 0;
             while(true){
@@ -74,8 +74,8 @@ public class App
 
                 if(answer.equals("y")){
 
-                    System.out.println("\n\nHow many documents do you want to process? Please enter a number." +
-                                       "\nIf you want to process all the documents, please enter -1.");
+                    System.out.println("\n\n=> How many documents do you want to process? Please enter a number." +
+                                       "\n\t\033[3mIf you want to process all the documents, please enter \u001B[33m-1\u001B[0m.");
                     int nbDocToProcess = 0;
 
                     // Verify that the user enters a number
@@ -87,20 +87,20 @@ public class App
                             break;
                         }
                         catch(NumberFormatException e){
-                            System.out.println("Please enter a number.");
+                            System.out.println("\u001B[31m!Invalid input!\u001B[31m");
                         }
                         // Verify that the user enters a positive number
                         if (nbDocToProcess == -1 || nbDocToProcess > 0){
                             break;
                         }
                         else{
-                            System.out.println("Please enter a strictly positive number or -1.");
+                            System.out.println("Please enter a \033[4mstrictly positive\033[0m number or \033[4m-1\033[0m.");
                         }
                     }
                     // Create the index and the lexicon
                     Long startTime = (long) 0;
                     Indexer indexer = new Indexer("Lexicon.txt");
-                    String stemmingMsg = "\n\nWould you like to use stemming? Please enter y or n.";
+                    String stemmingMsg = "\n\n=> Would you like to use stemming? Please enter y or n.";
                     System.out.println(stemmingMsg);
                     while(true){
                         Scanner scStem = new Scanner(System.in);
@@ -109,24 +109,20 @@ public class App
                             stemFlag = true;
                             startTime = System.nanoTime();
                             nbDocProcessed = indexer.parseTsvFile(dirData + fileName, nbDocToProcess, stemFlag);
-                            indexer.mergeBlocks();
-                            long endTime = System.nanoTime();
-                            long duration = (endTime - startTime)/1000000000;
-                            System.out.println("The index and the stemmed lexicon have been created in " + duration + " seconds");
                             break;
                         }else if(answerStem.equals("n")){
                             stemFlag = false;
                             startTime = System.nanoTime();
                             nbDocProcessed = indexer.parseTsvFile(dirData + fileName, nbDocToProcess, stemFlag);
-                            indexer.mergeBlocks();
-                            long endTime = System.nanoTime();
-                            long duration = (endTime - startTime)/1000000000;
-                            System.out.println("The index and the lexicon have been created in " + duration + " seconds");
                             break;
                         }
                         else{
-                            System.out.println("Please enter y or n.");
+                            System.out.println("Please enter \u001B[33my\u001B[0m or \u001B[33mn\u001B[0m.");
                         }
+                        indexer.mergeBlocks();
+                        long endTime = System.nanoTime();
+                        long duration = (endTime - startTime)/1000000000;
+                        System.out.println("\n\t>> The index and the stemmed lexicon have been created in " + duration + " seconds.");
                     }
                 }
                 else if(answer.equals("n")){
@@ -135,14 +131,15 @@ public class App
                     break;
                 }
                 else{
-                    System.out.println("Please enter y or n.");
+                    System.out.println("Please enter \u001B[33my\u001B[0m or \u001B[33mn\u001B[0m.");
                 }
             }
             
             // Query search engine
-            QuerySearch querySearch = new QuerySearch(nbDocProcessed, stemFlag);
+            QuerySearch querySearch = new QuerySearch(nbDocProcessed);
             while(true){
-                String queryMsg = "\n\nPlease enter your query. If you want to exit, please enter -1.";
+                String queryMsg = "\n\n=> Please enter your query. " +
+                                  "\n\t\033[3mIf you want to exit, please enter \u001B[33m-1\u001B[0m.";
                 System.out.println(queryMsg);
                 Scanner sc = new Scanner(System.in);
                 String query = sc.nextLine();
@@ -152,16 +149,18 @@ public class App
                 else{
                     // Get the type of the query
                     String typeQuery = "";
-                    String queryMsg2 = "\nPlease enter the type of the query. Please enter `1` for a conjunctive query, `2` for a disjunctive query.";
+                    String queryMsg2 = "\n\n=> Please enter the type of the query. " +
+                                       "\n\t\033[3mPlease enter \u001B[33m1\u001B[0m \033[3mfor a conjunctive query, \u001B[33m2\u001B[0m \033[3mfor a disjunctive query\033[0m.";
                     System.out.println(queryMsg2);
 
                     // Verify that the user enters a number
                     while(true){
                         Scanner sc5 = new Scanner(System.in);
                         String answer2 = sc5.nextLine();
-                        // Verify that the user enters a number                    
-                        //try{
+                        // Verify that the user enters a number
+                        try{
                             int typeQueryInt = Integer.parseInt(answer2);
+                            //int typeQueryInt = Integer.parseInt(answer2);
                             if(typeQueryInt == 1){
                                 typeQuery = "conjunctive";
                                 break;
@@ -171,12 +170,12 @@ public class App
                                 break;
                             }
                             else{
-                                System.out.println("Please enter `1` or `2`");
+                                System.out.println("Please enter \u001B[33m1\u001B[0m or \u001B[33m2\u001B[0m.");
                             }
-                        //}
-                        // catch(NumberFormatException e){
-                        //     System.out.println("Please enter 1 or 2");
-                        // }
+                        }catch (NumberFormatException ex) {
+                            System.out.println("\n\u001B[31m!Invalid input!\u001B[0m");
+                            System.out.println("Please enter \u001B[33m1\u001B[0m or \u001B[33m2\u001B[0m.");
+                        }
                     }
                     // Beginning of the search
                     Long startTime = System.nanoTime();
@@ -184,10 +183,11 @@ public class App
                     querySearch.executeQuery(typeQuery, query, stemFlag, typeScore);
                     Long endTime = System.nanoTime();
                     // in milliseconds
-                    System.out.println("Search done in " + (endTime - startTime)/1000000 + " milliseconds");
+                    System.out.println("\n\t>> Search done in \u001B[33m" + (endTime - startTime)/1000000 + "\u001B[0m milliseconds");
                     //System.out.println("Query processed in " + (endTime - startTime)/1000000000 + " seconds");
 
-                    String msg = "\n\nDo you want to print the relevant documents? Please enter y or n.";
+                    String msg = "\n\n=> Do you want to print the relevant documents? " +
+                                 "\n\t\033[3mPlease enter \u001B[33my\u001B[0m \033[3mor \u001B[33mn\u001B[0m.";
                     System.out.println(msg);
                     while(true){
                         Scanner sc3 = new Scanner(System.in);
@@ -200,7 +200,7 @@ public class App
                             break;
                         }
                         else{
-                            System.out.println("Please enter y or n.");
+                            System.out.println("Please enter \u001B[33my\u001B[0m or \u001B[33mn\u001B[0m.");
                         }
                     }
                     querySearch.closeList();
@@ -209,7 +209,7 @@ public class App
 
         }
         catch(Exception e){
-            System.err.println("Error: " + e.getMessage());
+            System.err.println("\u001B[31mError: " + e.getMessage() + "\u001B[0m");
             System.out.println(e);
             e.printStackTrace();
         }

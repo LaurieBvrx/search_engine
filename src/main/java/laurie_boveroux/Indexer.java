@@ -87,7 +87,7 @@ public class Indexer{
 
             Map<String, List<Integer>> dictionary = new LinkedHashMap<String, List<Integer>>();
 
-            System.out.println("Block " + blockNumber + " in construction ");
+            System.out.println("\n\t> \033[3mBlock \u001B[33m" + blockNumber + "\u001B[0m \033[3min construction...\033[0m");
 
             // While there is free memory
             while(usedMemory<0.95*totalMemory && it.hasNext() && numDocCurr < numberReadDoc){
@@ -97,7 +97,7 @@ public class Indexer{
 
                 // To keep track of the number of documents read
                 if (numDocCurr % 100000 == 0){
-                    System.out.println("Number of documents read: " + numDocCurr);
+                    System.out.println("\t\tNumber of documents read: \u001B[34m" + numDocCurr + "\u001B[0m");
                 }
 
                 String document = it.nextLine(); // one line = one document
@@ -215,7 +215,7 @@ public class Indexer{
     }
     
     public static void mergeBlocks() throws IOException{
-        System.out.println("Starting to merge blocks");
+        System.out.println("\nStarting to merge blocks...");
         long startTimeMerge = System.currentTimeMillis();
 
         //Pointer to the files and info needed to merge the blocks
@@ -298,7 +298,7 @@ public class Indexer{
         invIndexDocidBuffer.close();
         invIndexFreqBuffer.close();
         long endTimeMerge = System.currentTimeMillis();
-        System.out.println("Time to merge blocks : " + (endTimeMerge - startTimeMerge) + " ms");
+        System.out.println("\n\t>> Time to merge blocks: \u001B[33m" + (endTimeMerge - startTimeMerge) + "\u001B[0m ms");
 
     }
 
