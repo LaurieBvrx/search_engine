@@ -169,7 +169,7 @@ public class QuerySearch{
         this.docIdOrderedList.clear();
     }
 
-    public int executeQuery(String typeQuery, String query, boolean stemFlag, String typeScore) throws IOException {
+    public int executeQuery(String typeQuery, String query, boolean stemFlag, String typeScore, boolean stopWordsFlag) throws IOException {
         // Open inverted index file (dicId and frequency) for reading
         String currentPath = new java.io.File(".").getCanonicalPath();
         String IdPath = currentPath + "/InvertedIndexDocid.txt";
@@ -188,10 +188,13 @@ public class QuerySearch{
         // Get the posting list for each term of the query
         int countPassedWords = 0;
         for (int i = 0; i < num; i++) {
-            if (Arrays.asList(Indexer.stopwordsList).contains(q[i]) || q[i].length() == 0) {
-                countPassedWords++;
-                continue;
-            }
+            if (stopWordsFlag) {
+                if (Arrays.asList(Indexer.stopwordsList).contains(q[i]) || q[i].length() == 0) {
+                    countPassedWords++;
+                    continue;
+                }
+            }else {continue;}
+
             ListPointer lpi;
             if (stemFlag){
                 lpi = openList(pStemQ.stem(q[i]), fileDocIds, fileFreqs);

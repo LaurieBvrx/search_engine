@@ -35,6 +35,7 @@ public class App
             String currentPath = new java.io.File(".").getCanonicalPath();
             String dirData = currentPath + "/data/";
             boolean stemFlag = false;
+            boolean stopWordsFlag = false;
 
             // Extract the collection if the user wants to
             String welcomeMsg = "\n\n\u001B[36m================================================\u001B[32m Welcome to Search Engine \u001B[36m================================================\u001B[0m" +
@@ -100,25 +101,44 @@ public class App
                     // Create the index and the lexicon
                     Long startTime = (long) 0;
                     Indexer indexer = new Indexer("Lexicon.txt");
-                    String stemmingMsg = "\n\n=> Would you like to use stemming? Please enter y or n.";
+                    String stemmingMsg = "\n\n=> Would you like to use stemming? Please enter \u001B[33my\u001B[0m or \u001B[33mn\u001B[0m.";
                     System.out.println(stemmingMsg);
-                    while(true){
+                    while(true) {
                         Scanner scStem = new Scanner(System.in);
                         String answerStem = scStem.nextLine();
-                        if(answerStem.equals("y")){
+
+                        String stopWordsMsg = "\n\n=> Would you like to remove stopwords? Please enter \u001B[33my\u001B[0m or \u001B[33mn\u001B[0m.";
+                        System.out.println(stopWordsMsg);
+                        while(true) {
+                            Scanner scStop = new Scanner(System.in);
+                            String answerStop = scStem.nextLine();
+                            if (answerStem.equals("y")) {
+                                stopWordsFlag = true;
+                                break;
+                            } else if (answerStem.equals("n")) {
+                                stopWordsFlag = false;
+                                break;
+                            } else {
+                                System.out.println("Please enter \u001B[33my\u001B[0m or \u001B[33mn\u001B[0m.");
+                            }
+                        }
+
+                        if (answerStem.equals("y")) {
                             stemFlag = true;
                             startTime = System.nanoTime();
-                            indexer.parseTsvFile(dirData + fileName, nbDocToProcess, stemFlag);
+                            System.out.print(stopWordsFlag);
+                            indexer.parseTsvFile(dirData + fileName, nbDocToProcess, stemFlag, stopWordsFlag);
                             break;
-                        }else if(answerStem.equals("n")){
+                        } else if (answerStem.equals("n")) {
                             stemFlag = false;
                             startTime = System.nanoTime();
-                            indexer.parseTsvFile(dirData + fileName, nbDocToProcess, stemFlag);
+                            System.out.print(stopWordsFlag);
+                            indexer.parseTsvFile(dirData + fileName, nbDocToProcess, stemFlag, stopWordsFlag);
                             break;
-                        }
-                        else{
+                        } else {
                             System.out.println("Please enter \u001B[33my\u001B[0m or \u001B[33mn\u001B[0m.");
                         }
+
                         indexer.mergeBlocks();
                         long endTime = System.nanoTime();
                         long duration = (endTime - startTime)/1000000000;
@@ -180,7 +200,7 @@ public class App
                     // Beginning of the search
                     String typeScore = "okapibm25"; //"tfidf", "okapibm25".
                     Long startTime = System.nanoTime();
-                    querySearch.executeQuery(typeQuery, query, stemFlag, typeScore);
+                    querySearch.executeQuery(typeQuery, query, stemFlag, typeScore, stopWordsFlag);
                     Long endTime = System.nanoTime();
                     // in milliseconds
                     Long duration = (endTime - startTime)/1000000;

@@ -73,7 +73,7 @@ public class Indexer{
         return preprocessedText;
     }
 
-    public static void parseTsvFile(String collectionPath, int numberReadDoc, boolean stemFlag) throws IOException{
+    public static void parseTsvFile(String collectionPath, int numberReadDoc, boolean stemFlag, boolean stopWordsFlag) throws IOException{
 
         if (numberReadDoc == -1){ // if we want to read all the documents
             numberReadDoc = Integer.MAX_VALUE;
@@ -114,18 +114,19 @@ public class Indexer{
                 String stem;
                 PorterStemmer pStem = new PorterStemmer();
 
-
                 int nbStopWords = 0; // to keep track of the number of stop words to have the correct document length
                 for (String term : terms) {
                     // keep only the fisrt 64 bits of the term
                     if (term.length() > 64){
                         term = term.substring(0, 64);
                     }
-                    // if term is in stopword list, skip it
-                    if (Arrays.asList(stopwordsList).contains(term) || term.length() == 0) {
-                        nbStopWords++;
-                        continue;
-                    }
+                    if (stopWordsFlag) {
+                        // if term is in stopword list, skip it
+                        if (Arrays.asList(stopwordsList).contains(term) || term.length() == 0) {
+                            nbStopWords++;
+                            continue;
+                        }
+                    }else {continue;}
 
                     List<Integer> postingsList;
 

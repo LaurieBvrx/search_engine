@@ -10,7 +10,7 @@ import org.apache.commons.io.LineIterator;
 public class QueryTest{
     
     public void testQueryTime() throws IOException{
-        QuerySearch querySearch = new QuerySearch(8841823, false);
+        QuerySearch querySearch = new QuerySearch(8841823);
         String queryFilePath = "data/queries.eval.tsv";
         File queryFile = new File(queryFilePath);
         LineIterator it = FileUtils.lineIterator(queryFile, "UTF-8");
