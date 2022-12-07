@@ -5,66 +5,36 @@ import java.util.*;
 
 public class ListPointer{
 
-    public String term;
-    public int startIndex;
-    public int endIndex;
-    public int lengthBytes;
-    public int[] docIdsArray;
-    public int[] freqsArray;
-    public int index;
-    public int nbRelevantDocs;
+    private int startIndexId;
+    private int startIndexFreq;
+    private int endIndexId;
+    private int endIndexFreq;
+    private int lengthBytesId;
+    private int lengthBytesFreq;
+    private List<Integer> docIdsArray;
+    private List<Integer> freqsArray;
+    private int index;
+    private int nbRelevantDocs;
 
 
-    public ListPointer(String term,int startIndex,int endIndex) throws IOException {
+    public ListPointer(int startIndexId, int startIndexFreq, int endIndexId, int endIndexFreq, RandomAccessFile fileDocIds, RandomAccessFile fileFreqs) throws IOException {
 
-        String currentPath = new java.io.File(".").getCanonicalPath();
-        // File for the docId of the posting lists
-        String IdPath = currentPath + "/InvertedIndexDocid.txt";
-        RandomAccessFile fileDocIds = new RandomAccessFile(IdPath, "r");
-        long lenDoc = fileDocIds.length();
-        System.out.println("\n\t> lenDoc inverted index docId: \u001B[34m" + lenDoc + "\u001B[0m");
-        // File for the frequencies of the posting lists
-        String freqs = currentPath + "/InvertedIndexFreq.txt";
-        RandomAccessFile fileFreqs = new RandomAccessFile(freqs, "r");
-
-        this.term = term;
-        this.startIndex = startIndex;
-        if (endIndex == -1){
-            this.endIndex = (int) fileDocIds.length();
+        this.startIndexId = startIndexId;
+        this.startIndexFreq = startIndexFreq;
+        if (endIndexId == -1){
+            this.endIndexId = (int) fileDocIds.length();
+            this.endIndexFreq = (int) fileFreqs.length();
         }
         else{
-            this.endIndex = endIndex;
+            this.endIndexId = endIndexId;
+            this.endIndexFreq = endIndexFreq;
         }
-        this.lengthBytes = this.endIndex - this.startIndex;
+        this.lengthBytesId = this.endIndexId - this.startIndexId;
+        this.lengthBytesFreq = this.endIndexFreq - this.startIndexFreq;
         this.index = 0;
-
-        // read the docIds: length*4 bytes from startIndex in fileDocIds   
-        byte[] bytesId = new byte[lengthBytes];
-        fileDocIds.seek(startIndex);
-        fileDocIds.read(bytesId);
-        fileDocIds.close();
-
-        // read the frequencies: length*4 bytes from startIndex in fileFreqs
-        byte[] bytesFreq = new byte[lengthBytes];
-        fileFreqs.seek(startIndex);
-        fileFreqs.read(bytesFreq);
-        fileFreqs.close();        
-  
-        // docIds
-        List<Integer> decodedDocIdsList = VBDecode(bytesId);
-        this.docIdsArray = new int[decodedDocIdsList.size()];
-        for (int i = 0; i < decodedDocIdsList.size(); i++){
-            this.docIdsArray[i] = decodedDocIdsList.get(i);
-        }
-
-        // freqs
-        List<Integer> decodedFreqsList = VBDecode(bytesFreq);
-        this.freqsArray = new int[decodedFreqsList.size()];
-        for (int i = 0; i < decodedFreqsList.size(); i++){
-            this.freqsArray[i] = decodedFreqsList.get(i);
-        }
-
-        this.nbRelevantDocs = this.docIdsArray.length;
+        this.docIdsArray = getDocIdArray(this.lengthBytesId, this.startIndexId, fileDocIds);
+        this.freqsArray = getFreqArray(this.lengthBytesFreq, this.startIndexFreq, fileFreqs);
+        this.nbRelevantDocs = this.docIdsArray.size();
     }
 
     public int getLength() {
@@ -75,15 +45,51 @@ public class ListPointer{
         return this.nbRelevantDocs;
     }
 
-    public int getMaxDocId() {        
-        return docIdsArray[nbRelevantDocs-1];
+    public int getMaxDocId() {
+        return docIdsArray.get(nbRelevantDocs-1);
     }
 
     public int getFreq(int index){
-        return freqsArray[index];
+        return freqsArray.get(index);
     }
 
-    public static List<Integer> VBDecode(byte[] bytesTab){
+    public int getIndex(){
+        return this.index;
+    }
+
+    public void setIndex(int index){
+        this.index = index;
+    }
+
+    public int getDocId(int index){
+        return docIdsArray.get(index);
+    }
+
+    private static List<Integer> getDocIdArray(int lengthBytes, int startIndex, RandomAccessFile fileDocIds) throws IOException{
+        // read the docIds: lengthBytes bytes from startIndex in fileDocIds
+        byte[] bytesId = new byte[lengthBytes];
+        fileDocIds.seek(startIndex);
+        fileDocIds.read(bytesId);
+
+        // decode the docIds
+        List<Integer> decodedDocIdsList = VBDecode(bytesId);
+
+        return decodedDocIdsList;
+    }
+
+    private static List<Integer> getFreqArray(int lengthBytes, int startIndex, RandomAccessFile fileFreqs) throws IOException{
+        // read the frequencies: lengthBytes bytes from startIndex in fileFreqs
+        byte[] bytesFreq = new byte[lengthBytes];
+        fileFreqs.seek(startIndex);
+        fileFreqs.read(bytesFreq);
+
+        // decode freqs
+        List<Integer> decodedFreqsList = VBDecode(bytesFreq);
+
+        return decodedFreqsList;
+    }
+
+    private static List<Integer> VBDecode(byte[] bytesTab){
         List<Integer> result = new ArrayList<Integer>();
         for (int i = 0; i < bytesTab.length; i++){
             String intermediateNumber = "";
@@ -101,5 +107,13 @@ public class ListPointer{
             result.add(Integer.parseInt(intermediateNumber,2));
         }
         return result;        
+    }
+
+    private static int minBytesToInt(byte[] bytes) {
+        int value = 0;
+        for (int i = 0; i < bytes.length; i++) {
+            value += (bytes[i] & 0xFF) * Math.pow(256, i);
+        }
+        return value;
     }
 }

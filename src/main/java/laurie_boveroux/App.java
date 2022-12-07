@@ -108,12 +108,12 @@ public class App
                         if(answerStem.equals("y")){
                             stemFlag = true;
                             startTime = System.nanoTime();
-                            nbDocProcessed = indexer.parseTsvFile(dirData + fileName, nbDocToProcess, stemFlag);
+                            indexer.parseTsvFile(dirData + fileName, nbDocToProcess, stemFlag);
                             break;
                         }else if(answerStem.equals("n")){
                             stemFlag = false;
                             startTime = System.nanoTime();
-                            nbDocProcessed = indexer.parseTsvFile(dirData + fileName, nbDocToProcess, stemFlag);
+                            indexer.parseTsvFile(dirData + fileName, nbDocToProcess, stemFlag);
                             break;
                         }
                         else{
@@ -178,12 +178,13 @@ public class App
                         }
                     }
                     // Beginning of the search
-                    Long startTime = System.nanoTime();
                     String typeScore = "okapibm25"; //"tfidf", "okapibm25".
+                    Long startTime = System.nanoTime();
                     querySearch.executeQuery(typeQuery, query, stemFlag, typeScore);
                     Long endTime = System.nanoTime();
                     // in milliseconds
-                    System.out.println("\n\t>> Search done in \u001B[33m" + (endTime - startTime)/1000000 + "\u001B[0m milliseconds");
+                    Long duration = (endTime - startTime)/1000000;
+                    System.out.println("\n\t>> Search done in \u001B[33m" + duration + "\u001B[0m milliseconds");
                     //System.out.println("Query processed in " + (endTime - startTime)/1000000000 + " seconds");
 
                     String msg = "\n\n=> Do you want to print the relevant documents? " +
@@ -204,6 +205,7 @@ public class App
                         }
                     }
                     querySearch.closeList();
+
                 }
             }
 

@@ -10,7 +10,7 @@ class BinarySearch{
 
     public BinarySearch(File f) throws FileNotFoundException {
         this.file = new RandomAccessFile(f, "r");
-        this.lineLen = 68;
+        this.lineLen = 72;
     }
 
     public List<byte[]> search(String element) throws IOException {

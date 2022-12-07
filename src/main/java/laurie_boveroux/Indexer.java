@@ -18,7 +18,8 @@ public class Indexer{
     public static BufferedOutputStream invIndexFreqBuffer;
     public static BufferedOutputStream docIndexBuffer;
     public static BufferedOutputStream lexiconBuffer;
-    public static int totalInvIndexBytes;
+    public static int totalInvIndexBytesId;
+    public static int totalInvIndexBytesFreq;
     public static int averageDocumentSize;
     public static int docIndexBytes;
     public static int lexiconBytes;
@@ -48,7 +49,8 @@ public class Indexer{
         this.invIndexFreqBuffer = new BufferedOutputStream(new FileOutputStream("InvertedIndexFreq.txt"),4096 * 10000);
         this.docIndexBuffer = new BufferedOutputStream(new FileOutputStream("DocumentIndex.txt"),4096 * 10000);
         this.lexiconBuffer = new BufferedOutputStream(new FileOutputStream(filenamelexicon),4096 * 10000);
-        this.totalInvIndexBytes = 0;
+        this.totalInvIndexBytesId = 0;
+        this.totalInvIndexBytesFreq = 0;
         this.averageDocumentSize = 0;
         this.docIndexBytes = 0;
         this.lexiconBytes = 0;
@@ -70,7 +72,8 @@ public class Indexer{
         preprocessedText = preprocessedText.toLowerCase();
         return preprocessedText;
     }
-    public static int parseTsvFile(String collectionPath, int numberReadDoc, boolean stemFlag) throws IOException{
+
+    public static void parseTsvFile(String collectionPath, int numberReadDoc, boolean stemFlag) throws IOException{
 
         if (numberReadDoc == -1){ // if we want to read all the documents
             numberReadDoc = Integer.MAX_VALUE;
@@ -153,17 +156,13 @@ public class Indexer{
                 if (docIndexBytes >= 4096 * 10000 - 2*8){
                     docIndexBuffer.flush();
                     docIndexBytes = 0;
-                }else{
-                    docIndexBytes += 2*8;
-                    // docNo to bytes
-                    byte[] docNoBytes = ByteBuffer.allocate(4).putInt(docNo).array();
-                    docIndexBuffer.write(docNoBytes);
-                    // docLength to bytes
-                    byte[] docLengthBytes = ByteBuffer.allocate(4).putInt(terms.length - nbStopWords).array();
-                    docIndexBuffer.write(docLengthBytes);
                 }
+                docIndexBytes += 2*4;
+                byte[] docNoBytes = ByteBuffer.allocate(4).putInt(docNo).array();
+                docIndexBuffer.write(docNoBytes);
+                byte[] docLengthBytes = ByteBuffer.allocate(4).putInt(terms.length - nbStopWords).array();
+                docIndexBuffer.write(docLengthBytes);
 
-                // Write the document in the document index
                 docid++;
                 numDocCurr++;
                 averageDocumentSize += terms.length - nbStopWords;
@@ -173,8 +172,8 @@ public class Indexer{
             System.gc(); // Garbage collector
         }
         it.close(); // Close the iterator
-        docIndexBuffer.close();
         docIndexBuffer.flush();
+        docIndexBuffer.close();
         averageDocumentSize = averageDocumentSize / docid;
 
         // write data needed for scoring
@@ -184,8 +183,6 @@ public class Indexer{
         FileWriter myWriter = new FileWriter(metaDataFile);
         myWriter.write(averageDocumentSizeString + " " + docidString);
         myWriter.close();
-
-        return docid; // Return the number of documents read
     }   
 
     public static void sortAndWriteBlockToFile(Map<String, List<Integer>> dictionary) throws IOException{
@@ -235,11 +232,12 @@ public class Indexer{
             finishBlock.add(false);
         }
 
-        int startPostList = 0; // to keep track of the start of the posting list in the inverted index
+        int startPostListId = 0; // to keep track of the start of the posting list in the inverted index
+        int startPostListFreq = 0;
         // While all the blocks are not finished
-        while (finishBlock.contains(false)){
-            int byteWritten = 0; // to keep track of the number of bytes written in the inverted index
-
+        while (finishBlock.contains(false)){            
+            int byteWrittenDocId= 0; // to keep track of the number of bytes written in the inverted index
+            int byteWrittenFreq = 0;
             // Find all the indexes (i.e. number of the block) that have the smaller term 
             List<Integer> minIndexes = new ArrayList<Integer>();
             String minTerm = Collections.min(termArray);
@@ -260,7 +258,9 @@ public class Indexer{
                 if (postings[postings.length-1].charAt(postings[postings.length-1].length()-1) == ']'){
                     postings[postings.length-1] = postings[postings.length-1].substring(0, postings[postings.length-1].length()-1);
                 }
-                byteWritten = byteWritten + reduceAndWritePostingList(postings);
+                int[] bytes = reduceAndWritePostingList(postings);
+                byteWrittenDocId += bytes[0];
+                byteWrittenFreq += bytes[1];
 
                 //update all the arrays
                 int index = minIndexes.get(i);
@@ -277,27 +277,36 @@ public class Indexer{
                     finishBlock.set(index, true);
                 }
             }
-            int endPostList = byteWritten; // to keep track of the end of the posting list in the inverted index
+            int endPostListId = byteWrittenDocId;
+            int endPostListFreq = byteWrittenFreq;
 
-            // write the term in the tab
+            // write the term and the offset in the lexicon
             if (lexiconBytes >= 4096 * 10000 *0.95){
                 lexiconBuffer.flush();
                 lexiconBytes = 0;
             }else{
                 byte[] termBytes = stringTo64Bytes(minTerm);
-                byte[] startPostListBytes = ByteBuffer.allocate(4).putInt(startPostList).array();
+                byte[] startPostListIdBytes = ByteBuffer.allocate(4).putInt(startPostListId).array();
+                byte[] startPostListFreqBytes = ByteBuffer.allocate(4).putInt(startPostListFreq).array();
                 lexiconBuffer.write(termBytes);
-                lexiconBuffer.write(startPostListBytes);
+                lexiconBuffer.write(startPostListIdBytes);
+                lexiconBuffer.write(startPostListFreqBytes);
+                lexiconBytes += 72;
             }
-            startPostList = startPostList + endPostList;
+            startPostListId += endPostListId;
+            startPostListFreq += endPostListFreq;
         }
 
-        writeToFile(); // write the last buffer to the inverted index
+        writeToFileInvertedIndex(); // write the last buffer to the inverted index
         lexiconBuffer.flush();
         lexiconBuffer.close();
         invIndexDocidBuffer.close();
         invIndexFreqBuffer.close();
         long endTimeMerge = System.currentTimeMillis();
+
+        // delete the directory blocks
+        //FileUtils.deleteDirectory(new File("blocks"));
+
         System.out.println("\n\t>> Time to merge blocks: \u001B[33m" + (endTimeMerge - startTimeMerge) + "\u001B[0m ms");
 
     }
@@ -319,16 +328,19 @@ public class Indexer{
         return bytes;
     }
 
-    public static int reduceAndWritePostingList(String[] postingsString) throws IOException{
+    public static int[] reduceAndWritePostingList(String[] postingsString) throws IOException{
         /* Reduce the posting list: remove duplicates and add the frequencies 
          * Return the number of bytes written in the inverted index
          */
-        int writtenBytesPost = 0;
+        int[] writteBytes = new int[2];
+        int writtenBytesDocid = 0;
+        int writtenBytesFreq = 0;
         // if invIndexDocidBuffer is full, write it to the file
         // (avoid to write too often and slow down the process)   
-        if (totalInvIndexBytes >= 4096 * 10000){
-            writeToFile();
-            totalInvIndexBytes = 0;
+        if (totalInvIndexBytesId >= 4096 * 10000 || totalInvIndexBytesFreq >= 4096 * 10000){
+            writeToFileInvertedIndex();
+            totalInvIndexBytesId = 0;
+            totalInvIndexBytesFreq = 0;
         }
 
         int i = 0;
@@ -342,43 +354,36 @@ public class Indexer{
                 i++;
             }
 
-            // Compressed Inverted Index with VB Encode
-            List<Integer> encodedDocId = new ArrayList<Integer>();
-            List<Integer> encodedFreq = new ArrayList<Integer>();
+            // Compressed Inverted Index
             int currDocIdInt = Integer.parseInt(currDocId);
-            int len = 0;
+            //VB Encode for docid
+            List<Integer> encodedDocId = new ArrayList<Integer>();
+            encodedDocId = VBEncodeNumber(currDocIdInt);
+            VBEncode(encodedDocId, true);
+            int lenDocId = encodedDocId.size();
 
-            if (currDocIdInt > count){ // if the docid is greater than the frequency, adapt the frequency
-                encodedDocId = VBEncodeNumber(currDocIdInt);
-                VBEncode(encodedDocId, true);
-                len = encodedDocId.size();
-                encodedFreq = VBEncodeNumber(count);
-                while (encodedFreq.size() < len){
-                    encodedFreq.add(0);
-                }
-                VBEncode(encodedFreq, false);                
-            }
-            else{ // if the frequency is greater than the docid, adapt the docid
-                encodedFreq = VBEncodeNumber(count);
-                VBEncode(encodedFreq, false);
-                len = encodedFreq.size();
-                encodedDocId = VBEncodeNumber(currDocIdInt);
-                while (encodedDocId.size() < len){
-                    encodedDocId.add(0);
-                }
-                VBEncode(encodedDocId, true);
-            }
-            totalInvIndexBytes += len; // to know if the buffer is full
-            writtenBytesPost += len; // to know when a posting list ends
+            // VB Encode for freq
+            List<Integer> encodedFreq = new ArrayList<Integer>();
+            encodedFreq = VBEncodeNumber(count);
+            VBEncode(encodedFreq, false);
+            int lenFreq = encodedFreq.size();
+
+            totalInvIndexBytesId += lenDocId; // to know if the buffer is full
+            totalInvIndexBytesFreq += lenFreq;
+            writtenBytesDocid += lenDocId; // to know when a posting list ends
+            writtenBytesFreq += lenFreq;
         }
-        return writtenBytesPost;
+        writteBytes[0] = writtenBytesDocid;
+        writteBytes[1] = writtenBytesFreq;
+        return writteBytes;
     }
 
-    public static void writeToFile() throws IOException{
+    public static void writeToFileInvertedIndex() throws IOException{
         // Write the buffer to the file
         invIndexDocidBuffer.flush();
         invIndexFreqBuffer.flush();
-        totalInvIndexBytes = 0;
+        totalInvIndexBytesId = 0;
+        totalInvIndexBytesFreq = 0;
     }
 
     public static List<Integer> VBEncodeNumber(Integer n){
@@ -395,7 +400,7 @@ public class Indexer{
         return result;        
     }
 
-    public static Integer VBEncode(List<Integer> list, Boolean flagDocId) throws IOException{
+    public static Integer VBEncode(List<Integer> list, boolean IdFlag) throws IOException{
         int len = 0;
         for (int i = 0; i < list.size(); i++){
             int n = list.get(i);
@@ -408,12 +413,12 @@ public class Indexer{
             }else{ // else add 1 to the left
                 binary = "1" + binary;
             }
-            if (flagDocId){
+            if (IdFlag){
                 invIndexDocidBuffer.write(Integer.parseInt(binary, 2));
-            }
-            else{
+            }else{
                 invIndexFreqBuffer.write(Integer.parseInt(binary, 2));
             }
+
             len += 1; //binary.length();
         }
         return len;
