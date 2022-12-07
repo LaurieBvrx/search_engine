@@ -170,13 +170,14 @@ public class App
                         // }
                     }
                     // Beginning of the search
-                    Long startTime = System.nanoTime();
                     String typeScore = "okapibm25"; //"tfidf", "okapibm25".
+                    Long startTime = System.nanoTime();
                     querySearch.executeQuery(typeQuery, query, stemFlag, typeScore);
                     Long endTime = System.nanoTime();
-                    // in milliseconds
-                    System.out.println("Search done in " + (endTime - startTime)/1000000 + " milliseconds");
-                    //System.out.println("Query processed in " + (endTime - startTime)/1000000000 + " seconds");
+                    // duration in milli seconds
+                    Long duration = (endTime - startTime)/1000000;
+                    System.out.println("The query has been processed in " + duration + " milliseconds");
+
 
                     String msg = "Do you want to print the relevant documents ? Please enter y or n.";
                     System.out.println(msg);

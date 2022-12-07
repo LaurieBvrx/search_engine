@@ -174,7 +174,7 @@ public class QuerySearch{
         this.docIdOrderedList.clear();
     }
 
-    public void executeQuery(String typeQuery, String query, boolean stemFlag, String typeScore) throws IOException {
+    public int executeQuery(String typeQuery, String query, boolean stemFlag, String typeScore) throws IOException {
         // Open inverted index file (dicId and frequency) for reading
         String currentPath = new java.io.File(".").getCanonicalPath();
         String IdPath = currentPath + "/InvertedIndexDocid.txt";
@@ -191,9 +191,10 @@ public class QuerySearch{
         PorterStemmer pStemQ = new PorterStemmer();
 
         // Get the posting list for each term of the query
+        int countPassedWords = 0;
         for (int i = 0; i < num; i++) {
             if (Arrays.asList(Indexer.stopwordsList).contains(q[i]) || q[i].length() == 0) {
-                num--;
+                countPassedWords++;
                 continue;
             }
             ListPointer lpi;
@@ -204,8 +205,11 @@ public class QuerySearch{
             }   
             if (lpi != null){
                 lp.add(lpi);
-            } 
+            }else{
+                countPassedWords++;
+            }
         }
+        num -= countPassedWords;
         // order the list of posting list by increasing length
         Collections.sort(lp, new Comparator<ListPointer>() {
             @Override
@@ -219,11 +223,11 @@ public class QuerySearch{
 
         if (lp.size() == 0){
             System.out.println("No result found");
-            return;
+            return 0;
+            //return;
         }
         // print num of terms in the query
-        System.out.println("Number of terms in the query: " + num);
-
+        //System.out.println("Number of terms in the query: " + num);
              
         if (typeQuery.equals("conjunctive")){
 
@@ -234,7 +238,7 @@ public class QuerySearch{
                     minMaxDocId = lp.get(i).getMaxDocId();
                 }
             }
-
+            
             int did = 0;   // document id
             while (did <= minMaxDocId){
                 // get next post from shortest list
@@ -253,6 +257,7 @@ public class QuerySearch{
                 else{
                     int[] tf = new int[num]; // term frequencies array
                     int[] df = new int[num]; // document frequencies array
+
                     // get the frequencies
                     for (int i=0; i<num; i++) {
                         tf[i] = getFreq(lp.get(i)); // get the frequency of all the terms of the query that are in the document
@@ -322,12 +327,14 @@ public class QuerySearch{
             // replace the score by -1
             this.scoreList.set(index, (double) -1);
         }
-        System.out.println("ids ordered : " + docIdOrderedList);
+        //System.out.println("ids ordered : " + docIdOrderedList);
         // Get docNo from docId
         List<Integer> docNoList = getDocNo();
-        System.out.println("docNo : " + docNoList);
-        System.out.println("ids   : " + this.docIdList);
-        System.out.println("scores : " + scoreOrderedList);
+        //System.out.println("docNo : " + docNoList);
+        //System.out.println("ids   : " + this.docIdList);
+        //System.out.println("scores : " + scoreOrderedList);
+
+        return 1;
 
     }
     
