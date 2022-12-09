@@ -17,3 +17,12 @@ This application is a search engine based on the document collection provided by
 <li> Choose the scoring method: TF-IDF or BM25 Okapi. </li>
 <li> Retrieve <em>k</em> most revelant documents for the query. </li>
 </ul>
+
+</ul>
+
+To compile and execute this program you must:
+<ul>
+<li>Create a <b>data</b> folder in the root directory, containing the collection of documents to process. To run this application smoothly, you may need the compressed <b>tar.gz</b> file as well in your <em>data</em> folder.</li>
+<li>Install the Maven depedencies.</li>
+<li>Run the App.java file.</li>
+</ul><br>
