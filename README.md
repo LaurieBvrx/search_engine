@@ -3,7 +3,7 @@
 This application is a search engine based on the document collection provided by TREC(2020), containing 8.8M documents, of which the totality was indexed and made ready to perform queries on. The application allows a user to:
 
 <ul><li>Extract the document collection if not already extracted.</li><br>
-<li>Build the InvertedIndex, DocumentIndex, Lecicon, InvertedIndexFrequency, and MetaDataCollection files, which are all needed for using the search engine, if not already generated. This step includes the following choices:</li>
+<li>Build the InvertedIndex, DocumentIndex, Lexicon, InvertedIndexFrequency, and MetaDataCollection files, which are all needed for using the search engine, if not already generated. This step includes the following choices:</li>
 
 <ul>
 <li> Choose how many documents to Index, if not the entire collection.</li>
