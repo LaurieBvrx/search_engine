@@ -48,9 +48,11 @@ public class App
                 Scanner sc = new Scanner(System.in);
                 String answer = sc.nextLine();
                 if(answer.equals("y")){
+                    Long startimeExtract = System.currentTimeMillis();
                     String compressedFileName = "collection.tar.gz";
                     fileName = extractTarGzFile(dirData + compressedFileName, dirData);
-                    System.out.println("\nThe file \u001B[35m" + fileName + "\u001B[0m has been extracted in the folder `data`.");
+                    Long endtimeExtract = System.currentTimeMillis();
+                    System.out.println("\nThe file \u001B[35m" + fileName + "\u001B[0m has been extracted in the folder `data` in " + (endtimeExtract-startimeExtract)+ " ms.");
                     break;
                 }
                 else if(answer.equals("n")){
@@ -112,10 +114,10 @@ public class App
                         while(true) {
                             Scanner scStop = new Scanner(System.in);
                             String answerStop = scStem.nextLine();
-                            if (answerStem.equals("y")) {
+                            if (answerStop.equals("y")) {
                                 stopWordsFlag = true;
                                 break;
-                            } else if (answerStem.equals("n")) {
+                            } else if (answerStop.equals("n")) {
                                 stopWordsFlag = false;
                                 break;
                             } else {
@@ -126,27 +128,32 @@ public class App
                         if (answerStem.equals("y")) {
                             stemFlag = true;
                             startTime = System.nanoTime();
-                            System.out.print(stopWordsFlag);
                             indexer.parseTsvFile(dirData + fileName, nbDocToProcess, stemFlag, stopWordsFlag);
-                            break;
+                            //break;
                         } else if (answerStem.equals("n")) {
                             stemFlag = false;
                             startTime = System.nanoTime();
-                            System.out.print(stopWordsFlag);
                             indexer.parseTsvFile(dirData + fileName, nbDocToProcess, stemFlag, stopWordsFlag);
-                            break;
+                            //break;
                         } else {
                             System.out.println("Please enter \u001B[33my\u001B[0m or \u001B[33mn\u001B[0m.");
                         }
-
+                        Long endTimeParse = System.nanoTime();
+                        Long durationParse = (endTimeParse - startTime) / 1000000000;
+                        Long startTimeMerge = System.nanoTime();
                         indexer.mergeBlocks();
+                        Long endTimeMerge = System.nanoTime();
+                        Long durationMerge = (endTimeMerge - startTimeMerge) / 1000000000;
                         long endTime = System.nanoTime();
                         long duration = (endTime - startTime)/1000000000;
-                        System.out.println("\n\t>> The index and the stemmed lexicon have been created in " + duration + " seconds.");
+                        System.out.println("\n\t>> The index and the lexicon have been created in " + duration + " seconds.\n " +
+                                "\t\t- Parsing: " + durationParse + " seconds.\n" +
+                                "\t\t- Merging: " + durationMerge + " seconds.");
+                        break;
                     }
+                    break;
                 }
                 else if(answer.equals("n")){
-                    nbDocProcessed = 8841822;
                     System.out.println("Ok, let's go!");
                     break;
                 }
@@ -156,7 +163,7 @@ public class App
             }
             
             // Query search engine
-            QuerySearch querySearch = new QuerySearch(nbDocProcessed);
+            QuerySearch querySearch = new QuerySearch();
             while(true){
                 String queryMsg = "\n\n=> Please enter your query. " +
                                   "\n\t\033[3mIf you want to exit, please enter \u001B[33m-1\u001B[0m.";
@@ -197,15 +204,54 @@ public class App
                             System.out.println("Please enter \u001B[33m1\u001B[0m or \u001B[33m2\u001B[0m.");
                         }
                     }
+
+                    // Get the type of the score
+                    String typeScore = "";
+                    String queryMsg3 = "\n\n=> Please enter the type of the score. " +
+                                        "\n\t\033[3mPlease enter \u001B[33m1\u001B[0m \033[3mfor a TF-IDF score, \u001B[33m2\u001B[0m \033[3mfor a Okapi BM25 score\033[0m.";
+                    System.out.println(queryMsg3);
+
+                    // Verify that the user enters a number
+                    while(true){
+                        Scanner sc5 = new Scanner(System.in);
+                        String answer2 = sc5.nextLine();
+                        // Verify that the user enters a number
+                        try{
+                            int typeScoreInt = Integer.parseInt(answer2);
+                            if(typeScoreInt == 1){
+                                typeScore = "tfidf";
+                                break;
+                            }
+                            else if(typeScoreInt == 2){
+                                typeScore = "okapibm25";
+                                break;
+                            }
+                            else{
+                                System.out.println("Please enter \u001B[33m1\u001B[0m or \u001B[33m2\u001B[0m.");
+                            }
+                        }catch (NumberFormatException ex) {
+                            System.out.println("\n\u001B[31m!Invalid input!\u001B[0m");
+                            System.out.println("Please enter \u001B[33m1\u001B[0m or \u001B[33m2\u001B[0m.");
+                        }
+                    }
                     // Beginning of the search
-                    String typeScore = "okapibm25"; //"tfidf", "okapibm25".
                     Long startTime = System.nanoTime();
-                    querySearch.executeQuery(typeQuery, query, stemFlag, typeScore, stopWordsFlag);
+                    List<List<Double>> tmp = querySearch.executeQuery(typeQuery, query, stemFlag, typeScore, stopWordsFlag);
                     Long endTime = System.nanoTime();
                     // in milliseconds
                     Long duration = (endTime - startTime)/1000000;
                     System.out.println("\n\t>> Search done in \u001B[33m" + duration + "\u001B[0m milliseconds");
                     //System.out.println("Query processed in " + (endTime - startTime)/1000000000 + " seconds");
+
+                    // Print the results
+                    List<Double> docno = tmp.get(0);
+                    List<Integer> docnoInt = new ArrayList<Integer>();
+                    for (Double d : docno){
+                        docnoInt.add(d.intValue());
+                    }
+                    List<Double> scores = tmp.get(1);
+                    System.out.println("\t> Docno : \u001B[34m" + docnoInt + "\u001B[0m");
+                    System.out.println("\t> Scores: \u001B[34m" + scores + "\u001B[0m");
 
                     String msg = "\n\n=> Do you want to print the relevant documents? " +
                                  "\n\t\033[3mPlease enter \u001B[33my\u001B[0m \033[3mor \u001B[33mn\u001B[0m.";

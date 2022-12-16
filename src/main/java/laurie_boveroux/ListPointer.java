@@ -108,12 +108,4 @@ public class ListPointer{
         }
         return result;        
     }
-
-    private static int minBytesToInt(byte[] bytes) {
-        int value = 0;
-        for (int i = 0; i < bytes.length; i++) {
-            value += (bytes[i] & 0xFF) * Math.pow(256, i);
-        }
-        return value;
-    }
 }

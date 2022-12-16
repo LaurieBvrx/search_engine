@@ -120,13 +120,13 @@ public class Indexer{
                     if (term.length() > 64){
                         term = term.substring(0, 64);
                     }
-                    if (stopWordsFlag) {
-                        // if term is in stopword list, skip it
-                        if (Arrays.asList(stopwordsList).contains(term) || term.length() == 0) {
-                            nbStopWords++;
-                            continue;
-                        }
-                    }else {continue;}
+
+                    // if term is in stopword list, skip it
+                    if ((stopWordsFlag && (Arrays.asList(stopwordsList).contains(term))) || term.length() == 0) {
+                        nbStopWords++;
+                        continue;
+                    }
+
 
                     List<Integer> postingsList;
 
@@ -214,7 +214,6 @@ public class Indexer{
     
     public static void mergeBlocks() throws IOException{
         System.out.println("\nStarting to merge blocks...");
-        long startTimeMerge = System.currentTimeMillis();
 
         //Pointer to the files and info needed to merge the blocks
         List<File> collectionFile = new ArrayList<File>();
@@ -303,13 +302,6 @@ public class Indexer{
         lexiconBuffer.close();
         invIndexDocidBuffer.close();
         invIndexFreqBuffer.close();
-        long endTimeMerge = System.currentTimeMillis();
-
-        // delete the directory blocks
-        //FileUtils.deleteDirectory(new File("blocks"));
-
-        System.out.println("\n\t>> Time to merge blocks: \u001B[33m" + (endTimeMerge - startTimeMerge) + "\u001B[0m ms");
-
     }
 
     private static  byte[] stringTo64Bytes(String s){
@@ -330,9 +322,8 @@ public class Indexer{
     }
 
     public static int[] reduceAndWritePostingList(String[] postingsString) throws IOException{
-        /* Reduce the posting list: remove duplicates and add the frequencies 
-         * Return the number of bytes written in the inverted index
-         */
+        //Reduce the posting list: remove duplicates and add the frequencies 
+        // Return the number of bytes written in the inverted index
         int[] writteBytes = new int[2];
         int writtenBytesDocid = 0;
         int writtenBytesFreq = 0;
@@ -388,6 +379,7 @@ public class Indexer{
     }
 
     public static List<Integer> VBEncodeNumber(Integer n){
+        // return the list of integer that represent n in VB encoding
         List<Integer> result = new ArrayList<Integer>();
         while(true){
             result.add(n % 128);
@@ -402,6 +394,8 @@ public class Indexer{
     }
 
     public static Integer VBEncode(List<Integer> list, boolean IdFlag) throws IOException{
+        // write the list of integer in VB encoding to the inverted index
+        // after adding 1 to the left of each number except the last one that is 0
         int len = 0;
         for (int i = 0; i < list.size(); i++){
             int n = list.get(i);
@@ -420,7 +414,7 @@ public class Indexer{
                 invIndexFreqBuffer.write(Integer.parseInt(binary, 2));
             }
 
-            len += 1; //binary.length();
+            len += 1;
         }
         return len;
     }
