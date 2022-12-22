@@ -20,7 +20,7 @@ public class QuerySearch{
     public List<Double> scoreOrderedList = new ArrayList<Double>();
 
 
-    public QuerySearch(int nbDoc) throws IOException{
+    public QuerySearch() throws IOException{
         this.lexicon = new BinarySearch(new File("Lexicon.txt"));
         this.docIdList = new ArrayList<Integer>();
         this.scoreList = new ArrayList<Double>();
@@ -169,7 +169,7 @@ public class QuerySearch{
         this.docIdOrderedList.clear();
     }
 
-    public int executeQuery(String typeQuery, String query, boolean stemFlag, String typeScore, boolean stopWordsFlag) throws IOException {
+    public List<List<Double>> executeQuery(String typeQuery, String query, boolean stemFlag, String typeScore, boolean stopWordsFlag) throws IOException {
         // Open inverted index file (dicId and frequency) for reading
         String currentPath = new java.io.File(".").getCanonicalPath();
         String IdPath = currentPath + "/InvertedIndexDocid.txt";
@@ -188,7 +188,7 @@ public class QuerySearch{
         // Get the posting list for each term of the query
         int countPassedWords = 0;
         for (int i = 0; i < num; i++) {
-            if (( stopWordsFlag && Arrays.asList(Indexer.stopwordsList).contains(q[i])) || q[i].length() == 0) {
+            if ((stopWordsFlag && Arrays.asList(Indexer.stopwordsList).contains(q[i])) || q[i].length() == 0) {
                 countPassedWords++;
                 continue;
             }
@@ -219,7 +219,7 @@ public class QuerySearch{
 
         if (lp.size() == 0){
             System.out.println("\n\t\033[3mNo result found\033[0m");
-            return 0;
+            return null;
         }
         // print num of terms in the query
         //System.out.println("Number of terms in the query: " + num);
@@ -281,7 +281,7 @@ public class QuerySearch{
                 int[] tf = new int[num]; // term frequencies array
                 int[] df = new int[num]; // document frequencies array
                 int nbTerm = 0;
-
+                // get the frequencies
                 for (int i=0; i<num; i++) {
                     int d = next(lp.get(i));
                     if (d == did){
@@ -318,38 +318,39 @@ public class QuerySearch{
             currScore = Collections.max(this.scoreList);
             int index = this.scoreList.indexOf(currScore);
             docIdOrderedList.add(this.docIdList.get(index));
-            scoreOrderedList.add(currScore);
+            scoreOrderedList.add(Math.round(currScore * 10000.0) / 10000.0);
             // replace the score by -1
             this.scoreList.set(index, (double) -1);
         }
-        System.out.println("\t> IDs ordered: \u001B[34m" + docIdOrderedList + "\u001B[0m");
-        // Get docNo from docId
-        List<Integer> docNoList = getDocNo();
-        System.out.println("\t> DocNo: \u001B[34m" + docNoList + "\u001B[0m");
-        System.out.println("\t> IDs: \u001B[34m" + this.docIdList + "\u001B[0m");
-        System.out.println("\t> Scores: \u001B[34m" + scoreOrderedList + "\u001B[0m");
+        List<Double> docNoList = getDocNo();
 
-        return 1;
+        List<List<Double>> resultDocNoScores = new ArrayList<List<Double>>();
+        resultDocNoScores.add(docNoList);
+        resultDocNoScores.add(scoreOrderedList);
+        return resultDocNoScores;
     }
     
-    public List<Integer> getDocNo() throws IOException{
-        List<Integer> docNoList = new ArrayList<Integer>();
+    public List<Double> getDocNo() throws IOException{
+        // get the docNo from the docId
+        List<Double> docNoList = new ArrayList<Double>();
         RandomAccessFile docIndex = new RandomAccessFile("documentIndex.txt", "r");
-        int size = this.docIdList.size();
+        int size = this.docIdOrderedList.size();
         for (int i = 0; i < size; i++){
-            int docIdcurr = this.docIdList.get(i);
+            int docIdcurr = this.docIdOrderedList.get(i);
             docIndex.seek(docIdcurr*8); // 4 bytes for docNo + 4 bytes for docLength
             // read 4 bytes
             byte[] b = new byte[4];
             docIndex.read(b);
             int docNocurr = ByteBuffer.wrap(b).getInt();
-            docNoList.add(docNocurr);
+            double docNocurrDouble = (double) docNocurr;
+            docNoList.add( docNocurrDouble);
         }
         docIndex.close();
         return docNoList;
     }
 
     public int getDocLength(int docId) throws IOException{
+        // get the docLength from the docId
         RandomAccessFile docIndex = new RandomAccessFile("documentIndex.txt", "r");
         docIndex.seek(docId*8 + 4); // 4 bytes for docNo + 4 bytes for docLength
         // read 4 bytes
