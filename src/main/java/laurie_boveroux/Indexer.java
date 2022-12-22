@@ -120,13 +120,10 @@ public class Indexer{
                     if (term.length() > 64){
                         term = term.substring(0, 64);
                     }
-                    if (stopWordsFlag) {
-                        // if term is in stopword list, skip it
-                        if (Arrays.asList(stopwordsList).contains(term) || term.length() == 0) {
+                    if ((stopWordsFlag && Arrays.asList(stopwordsList).contains(term)) || term.length() == 0) {
                             nbStopWords++;
                             continue;
                         }
-                    }else {continue;}
 
                     List<Integer> postingsList;
 
@@ -336,6 +333,10 @@ public class Indexer{
         int[] writteBytes = new int[2];
         int writtenBytesDocid = 0;
         int writtenBytesFreq = 0;
+        int sizePostingListGamma = 0;
+        int sizePostingListUnary = 0;
+        Boolean last = false;
+
         // if invIndexDocidBuffer is full, write it to the file
         // (avoid to write too often and slow down the process)   
         if (totalInvIndexBytesId >= 4096 * 10000 || totalInvIndexBytesFreq >= 4096 * 10000){
@@ -346,6 +347,10 @@ public class Indexer{
 
         int i = 0;
         while (i < postingsString.length) {
+            //check if last element of the posting list
+            if (i + 1 >= postingsString.length) {
+                last = true;
+            }
             // get the first element
             String currDocId = postingsString[i];
             // count the number of occurences
@@ -357,23 +362,36 @@ public class Indexer{
 
             // Compressed Inverted Index
             int currDocIdInt = Integer.parseInt(currDocId);
-            //VB Encode for docid
-            List<Integer> encodedDocId = new ArrayList<Integer>();
-            encodedDocId = VBEncodeNumber(currDocIdInt);
-            VBEncode(encodedDocId, true);
-            int lenDocId = encodedDocId.size();
 
-            // VB Encode for freq
-            List<Integer> encodedFreq = new ArrayList<Integer>();
-            encodedFreq = VBEncodeNumber(count);
-            VBEncode(encodedFreq, false);
-            int lenFreq = encodedFreq.size();
+            //Gamma Encode for docId
+            sizePostingListGamma = Test.gammaEncode(currDocIdInt, sizePostingListGamma, last);
 
-            totalInvIndexBytesId += lenDocId; // to know if the buffer is full
-            totalInvIndexBytesFreq += lenFreq;
-            writtenBytesDocid += lenDocId; // to know when a posting list ends
-            writtenBytesFreq += lenFreq;
+            //Unary Encode for docId
+            sizePostingListUnary = Test.unaryEncode(count,"0", sizePostingListUnary, last);
+
+//            //VB Encode for docid
+//            List<Integer> encodedDocId = new ArrayList<Integer>();
+//            encodedDocId = VBEncodeNumber(currDocIdInt);
+//            VBEncode(encodedDocId, true);
+//            int lenDocId = encodedDocId.size();
+//
+//            // VB Encode for freq
+//            List<Integer> encodedFreq = new ArrayList<Integer>();
+//            encodedFreq = VBEncodeNumber(count);
+//            VBEncode(encodedFreq, false);
+//            int lenFreq = encodedFreq.size();
+//
+//            totalInvIndexBytesId += lenDocId; // to know if the buffer is full
+//            totalInvIndexBytesFreq += lenFreq;
+//            writtenBytesDocid += lenDocId; // to know when a posting list ends
+//            writtenBytesFreq += lenFreq;
         }
+
+        totalInvIndexBytesId += sizePostingListGamma; // to know if the buffer is full
+        totalInvIndexBytesFreq += sizePostingListUnary;
+        writtenBytesDocid += sizePostingListGamma; // to know when a posting list ends
+        writtenBytesFreq += sizePostingListUnary;
+
         writteBytes[0] = writtenBytesDocid;
         writteBytes[1] = writtenBytesFreq;
         return writteBytes;
@@ -398,7 +416,7 @@ public class Indexer{
                 n = n / 128;
             }
         }
-        return result;        
+        return result;
     }
 
     public static Integer VBEncode(List<Integer> list, boolean IdFlag) throws IOException{

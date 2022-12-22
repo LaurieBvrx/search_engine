@@ -66,7 +66,7 @@ public class App
             // Create the index and lexicon if needed
             String indexMsg = "\n\n=> Do you need to create the index and the lexicon? Please enter \u001B[33my\u001B[0m or \u001B[33mn\u001B[0m." +
                               "\n\t\033[3mIf \u001B[33mn\u001B[97m, we suppose that the indexes already exist." +
-                              "\n\t(i.e. DocumentIndex.txt, InvertedIndexDocID.txt, InvertedIndexFreq.txt and Lexicon.txt)\033[0m";
+                              "\n\t(i.e. DocumentIndex.txt, InvertedIndexDocID.txt, InvertedIndexFreq.txt and Lexicon.txt, metaDataCollection.txt)\033[0m";
             System.out.println(indexMsg);
             int nbDocProcessed = 0;
             while(true){
@@ -88,14 +88,14 @@ public class App
                             break;
                         }
                         catch(NumberFormatException e){
-                            System.out.println("\u001B[31m!Invalid input!\u001B[31m");
+                            System.out.println("\u001B[31m!Invalid input!\u001B[0m");
                         }
                         // Verify that the user enters a positive number
                         if (nbDocToProcess == -1 || nbDocToProcess > 0){
                             break;
                         }
                         else{
-                            System.out.println("Please enter a \033[4mstrictly positive\033[0m number or \033[4m-1\033[0m.");
+                            System.out.println("Please enter a \u001B[33m\033[4mstrictly positive\033[0m number or \u001B[33m\033[4m-1\033[0m.");
                         }
                     }
                     // Create the index and the lexicon
@@ -111,11 +111,11 @@ public class App
                         System.out.println(stopWordsMsg);
                         while(true) {
                             Scanner scStop = new Scanner(System.in);
-                            String answerStop = scStem.nextLine();
-                            if (answerStem.equals("y")) {
+                            String answerStop = scStop.nextLine();
+                            if (answerStop.equals("y")) {
                                 stopWordsFlag = true;
                                 break;
-                            } else if (answerStem.equals("n")) {
+                            } else if (answerStop.equals("n")) {
                                 stopWordsFlag = false;
                                 break;
                             } else {
@@ -126,7 +126,6 @@ public class App
                         if (answerStem.equals("y")) {
                             stemFlag = true;
                             startTime = System.nanoTime();
-                            System.out.print(stopWordsFlag);
                             indexer.parseTsvFile(dirData + fileName, nbDocToProcess, stemFlag, stopWordsFlag);
                             break;
                         } else if (answerStem.equals("n")) {
@@ -147,9 +146,43 @@ public class App
                 }
                 else if(answer.equals("n")){
                     nbDocProcessed = 8841822;
+
+                    String LexStemMsg = "\n\n=> Is the Lexicon in your directory stemmed? Please enter \u001B[33my\u001B[0m or \u001B[33mn\u001B[0m.";
+                    System.out.println(LexStemMsg);
+                    while (true) {
+                        Scanner scStemLex = new Scanner(System.in);
+                        String answerStemLex = scStemLex.nextLine();
+                        if (answerStemLex.equals("y")) {
+                            stemFlag = true;
+                            break;
+                        } else if (answerStemLex.equals("n")) {
+                            stemFlag = false;
+                            break;
+                        } else {
+                            System.out.println("Please enter \u001B[33my\u001B[0m or \u001B[33mn\u001B[0m.");
+                        }
+                    }
+                    System.out.println("Ok, let's go!");
+
+                    String LexStopMsg = "\n\n=> Does the Lexicon in your directory contain stop words? Please enter \u001B[33my\u001B[0m or \u001B[33mn\u001B[0m.";
+                    System.out.println(LexStopMsg);
+                    while (true) {
+                        Scanner scStopLex = new Scanner(System.in);
+                        String answerStopLex = scStopLex.nextLine();
+                        if (answerStopLex.equals("n")) {
+                            stopWordsFlag = true;
+                            break;
+                        } else if (answerStopLex.equals("y")) {
+                            stopWordsFlag = false;
+                            break;
+                        } else {
+                            System.out.println("Please enter \u001B[33my\u001B[0m or \u001B[33mn\u001B[0m.");
+                        }
+                    }
                     System.out.println("Ok, let's go!");
                     break;
                 }
+
                 else{
                     System.out.println("Please enter \u001B[33my\u001B[0m or \u001B[33mn\u001B[0m.");
                 }
@@ -197,8 +230,37 @@ public class App
                             System.out.println("Please enter \u001B[33m1\u001B[0m or \u001B[33m2\u001B[0m.");
                         }
                     }
+                    // Get the type of the score
+                    String typeScore = "";
+                    String queryMsg3 = "\n\n=> Please enter the type of the score. " +
+                            "\n\t\033[3mPlease enter \u001B[33m1\u001B[0m \033[3mfor a TF-IDF score, \u001B[33m2\u001B[0m \033[3mfor a Okapi BM25 score\033[0m.";
+                    System.out.println(queryMsg3);
+
+                    // Verify that the user enters a number
+                    while(true){
+                        Scanner sc5 = new Scanner(System.in);
+                        String answer2 = sc5.nextLine();
+                        // Verify that the user enters a number
+                        try{
+                            int typeScoreInt = Integer.parseInt(answer2);
+                            if(typeScoreInt == 1){
+                                typeScore = "tfidf";
+                                break;
+                            }
+                            else if(typeScoreInt == 2){
+                                typeScore = "okapibm25";
+                                break;
+                            }
+                            else{
+                                System.out.println("Please enter \u001B[33m1\u001B[0m or \u001B[33m2\u001B[0m.");
+                            }
+                        }catch (NumberFormatException ex) {
+                            System.out.println("\n\u001B[31m!Invalid input!\u001B[0m");
+                            System.out.println("Please enter \u001B[33m1\u001B[0m or \u001B[33m2\u001B[0m.");
+                        }
+                    }
+
                     // Beginning of the search
-                    String typeScore = "okapibm25"; //"tfidf", "okapibm25".
                     Long startTime = System.nanoTime();
                     querySearch.executeQuery(typeQuery, query, stemFlag, typeScore, stopWordsFlag);
                     Long endTime = System.nanoTime();

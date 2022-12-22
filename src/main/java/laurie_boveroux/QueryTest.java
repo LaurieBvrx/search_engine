@@ -25,7 +25,7 @@ public class QueryTest{
             String queryText = lineSplit[1];
             //System.out.println("Query: " + queryText);           
             long startTime = System.currentTimeMillis();
-            int tmp = querySearch.executeQuery("conjunctive", queryText, false, "okapibm25");
+            int tmp = querySearch.executeQuery("conjunctive", queryText, false, "okapibm25", false);
             long endTime = System.currentTimeMillis();
             if (tmp == 0){
                 System.out.println(queryId + " " + queryText);

@@ -188,12 +188,10 @@ public class QuerySearch{
         // Get the posting list for each term of the query
         int countPassedWords = 0;
         for (int i = 0; i < num; i++) {
-            if (stopWordsFlag) {
-                if (Arrays.asList(Indexer.stopwordsList).contains(q[i]) || q[i].length() == 0) {
-                    countPassedWords++;
-                    continue;
-                }
-            }else {continue;}
+            if (( stopWordsFlag && Arrays.asList(Indexer.stopwordsList).contains(q[i])) || q[i].length() == 0) {
+                countPassedWords++;
+                continue;
+            }
 
             ListPointer lpi;
             if (stemFlag){

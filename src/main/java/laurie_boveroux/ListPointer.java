@@ -72,7 +72,8 @@ public class ListPointer{
         fileDocIds.read(bytesId);
 
         // decode the docIds
-        List<Integer> decodedDocIdsList = VBDecode(bytesId);
+        //List<Integer> decodedDocIdsList = VBDecode(bytesId);
+        List<Integer> decodedDocIdsList = Test.gammaDecodeList(bytesId);
 
         return decodedDocIdsList;
     }
@@ -84,7 +85,8 @@ public class ListPointer{
         fileFreqs.read(bytesFreq);
 
         // decode freqs
-        List<Integer> decodedFreqsList = VBDecode(bytesFreq);
+        //List<Integer> decodedFreqsList = VBDecode(bytesFreq);
+        List<Integer> decodedFreqsList = Test.unaryDecodeList(bytesFreq);
 
         return decodedFreqsList;
     }
