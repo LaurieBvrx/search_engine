@@ -1,6 +1,8 @@
 package laurie_boveroux;
 
 import java.io.*;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.LineIterator;
@@ -234,10 +236,12 @@ public class Indexer{
 
         int startPostListId = 0; // to keep track of the start of the posting list in the inverted index
         int startPostListFreq = 0;
+
         // While all the blocks are not finished
         while (finishBlock.contains(false)){            
             int byteWrittenDocId= 0; // to keep track of the number of bytes written in the inverted index
             int byteWrittenFreq = 0;
+
             // Find all the indexes (i.e. number of the block) that have the smaller term 
             List<Integer> minIndexes = new ArrayList<Integer>();
             String minTerm = Collections.min(termArray);
@@ -246,6 +250,7 @@ public class Indexer{
                     minIndexes.add(i);
                 }
             }
+
             // Write the posting list of each block at a time after reduce it (because of the duplicates)
             for (int i=0; i<minIndexes.size(); i++){
                 // get posting list in integer
@@ -258,6 +263,10 @@ public class Indexer{
                 if (postings[postings.length-1].charAt(postings[postings.length-1].length()-1) == ']'){
                     postings[postings.length-1] = postings[postings.length-1].substring(0, postings[postings.length-1].length()-1);
                 }
+
+                System.out.println("\nterm: " + minTerm + " | postings: " + postingArray.toString());
+
+                // reduce the posting list
                 int[] bytes = reduceAndWritePostingList(postings);
                 byteWrittenDocId += bytes[0];
                 byteWrittenFreq += bytes[1];
@@ -280,7 +289,7 @@ public class Indexer{
             int endPostListId = byteWrittenDocId;
             int endPostListFreq = byteWrittenFreq;
 
-            // write the term and the offset in the lexicon
+            // if lexiconBuffer is full, flush it
             if (lexiconBytes >= 4096 * 10000 *0.95){
                 lexiconBuffer.flush();
                 lexiconBytes = 0;
@@ -304,7 +313,7 @@ public class Indexer{
         invIndexFreqBuffer.close();
     }
 
-    private static  byte[] stringTo64Bytes(String s){
+    public static  byte[] stringTo64Bytes(String s){
         byte[] bytes = new byte[64];
         byte[] sBytes = s.getBytes();
         if (sBytes.length > 64){
@@ -322,13 +331,13 @@ public class Indexer{
     }
 
     public static int[] reduceAndWritePostingList(String[] postingsString) throws IOException{
-        //Reduce the posting list: remove duplicates and add the frequencies
+        // Reduce the posting list: remove duplicates and add the frequencies
         // Return the number of bytes written in the inverted index
-        int[] writteBytes = new int[2];
+        int[] writtenBytes = new int[2];
         int writtenBytesDocid = 0;
         int writtenBytesFreq = 0;
-        int sizePostingListGamma = 0;
-        int sizePostingListUnary = 0;
+        String[] postingListGamma = {"0", ""};
+        String[] postingListUnary = {"0", ""};
         Boolean last = false;
 
         // if invIndexDocidBuffer is full, write it to the file
@@ -341,27 +350,31 @@ public class Indexer{
 
         int i = 0;
         while (i < postingsString.length) {
-            //check if last element of the posting list
-            if (i + 1 >= postingsString.length) {
-                last = true;
-            }
+
             // get the first element
             String currDocId = postingsString[i];
             // count the number of occurences
             int count = 0;
+
+            //Count frequencies and skip duplicated docIds
             while (i < postingsString.length && postingsString[i].equals(currDocId)) {
                 count++;
                 i++;
             }
 
-            // Compressed Inverted Index
+            //check if last element of the posting list
+            if (i+1 > postingsString.length){
+                last = true;
+            }
+
+
             int currDocIdInt = Integer.parseInt(currDocId);
 
-            //Gamma Encode for docId
-            sizePostingListGamma = Test.gammaEncode(currDocIdInt, sizePostingListGamma, last);
+            //Gamma Encode for docIds
+            postingListGamma = gammaEncode(currDocIdInt, postingListGamma[0], postingListGamma[1], last);
 
-            //Unary Encode for docId
-            sizePostingListUnary = Test.unaryEncode(count,"0", sizePostingListUnary, last);
+            //Unary Encode for Frequencies
+            postingListUnary = unaryEncode(count,"0", postingListUnary[0], postingListUnary[1], last);
 
 //            //VB Encode for docid
 //            List<Integer> encodedDocId = new ArrayList<Integer>();
@@ -381,14 +394,15 @@ public class Indexer{
 //            writtenBytesFreq += lenFreq;
         }
 
-        totalInvIndexBytesId += sizePostingListGamma; // to know if the buffer is full
-        totalInvIndexBytesFreq += sizePostingListUnary;
-        writtenBytesDocid += sizePostingListGamma; // to know when a posting list ends
-        writtenBytesFreq += sizePostingListUnary;
+        totalInvIndexBytesId += Integer.parseInt(postingListGamma[0])/8; // to know if the buffer is full
+        totalInvIndexBytesFreq += Integer.parseInt(postingListUnary[0])/8;
+        writtenBytesDocid += Integer.parseInt(postingListGamma[0])/8; // to know when a posting list ends
+        writtenBytesFreq += Integer.parseInt(postingListUnary[0])/8;
 
-        writteBytes[0] = writtenBytesDocid;
-        writteBytes[1] = writtenBytesFreq;
-        return writteBytes;
+        writtenBytes[0] = writtenBytesDocid;
+        writtenBytes[1] = writtenBytesFreq;
+        System.out.println("writtenBytes = " + Arrays.toString(writtenBytes));
+        return writtenBytes;
     }
 
     public static void writeToFileInvertedIndex() throws IOException{
@@ -397,6 +411,92 @@ public class Indexer{
         invIndexFreqBuffer.flush();
         totalInvIndexBytesId = 0;
         totalInvIndexBytesFreq = 0;
+    }
+
+    public static String[] gammaEncode(int n, String l, String postinglist, Boolean last) throws IOException {
+        int ceiling = 0;
+        String filler = "";
+        String[] lengthAndPostings = new String[2];
+
+        // Convert the number to binary
+        String binary = Integer.toBinaryString(n);
+        // Compute the number of bits needed to represent the binary number
+        int numBits = binary.length();
+
+        // Increment the posting list length
+        int length = Integer.parseInt(l);
+        length += (numBits*2) +1;
+        // Compute the unary representation of the number of bits
+        String unary = "1".repeat(numBits) +"0";
+
+        // Compute the ceiling of the posting list and add filler 0s to make the length a multiple of 8
+        if (last && !(length % 8 == 0)){
+            ceiling = (int) (8*(Math.ceil(Math.abs(length/8)))) +8 ;
+            filler = "0".repeat(ceiling-length);
+            //Update the length again
+            length += filler.length();
+        }
+
+        // Write the concatenation of the unary representation and the binary number and concatenate to posting list
+        binary = unary+binary+filler;
+        //Update the posting list
+        String postings = postinglist + binary;
+
+        //If it's the last number, start writing every 8 bits into the buffer
+        if (last) {
+            for (int i = 0; i < postings.length(); i += 8) {
+                String byteString = postings.substring(i, Math.min(postings.length(), i + 8));
+                invIndexDocidBuffer.write(Integer.parseInt(byteString, 2));
+            }
+        }
+
+        //Store values to use in the next method call
+        lengthAndPostings[0]= Integer.toString(length);
+        lengthAndPostings[1]= postings;
+        return lengthAndPostings;
+
+    }
+    public static String[] unaryEncode(int n, String separator, String l, String postinglist, Boolean last) throws IOException {
+        int ceiling = 0;
+        String filler = "";
+        String unary = "";
+        String[] lengthAndPostings = new String[2];
+
+        // Compute the unary representation of the number
+        if (last){
+            unary = ("1").repeat(n);
+        } else {
+            unary = ("1").repeat(n)+ separator;
+        }
+
+        int length = Integer.parseInt(l);
+        // Increment the posting list length
+        length += unary.length();
+
+        // Compute the ceiling of the posting list and add filler 0s to make the length a multiple of 8
+        if (last && !(length % 8 == 0)){
+            ceiling = (int) (8*(Math.ceil(Math.abs(length/8)))) +8 ;
+            filler = "0".repeat(ceiling-length);
+            //Update the length again
+            length += filler.length();
+        }
+
+        // Write the concatenation of the unary representation and concatenate to posting list
+        String postings = postinglist+unary+filler;
+
+        //If it's the last number, start writing every 8 bits into the buffer
+        if (last) {
+            for (int i = 0; i < postings.length(); i += 8) {
+                String byteString = postings.substring(i, Math.min(postings.length(), i + 8));
+                //System.out.println("Byte String to Encode: " + byteString);
+                invIndexFreqBuffer.write(Integer.parseInt(byteString, 2));
+            }
+        }
+
+        //Store values to use in the next method call
+        lengthAndPostings[0]= Integer.toString(length);
+        lengthAndPostings[1]= postings;
+        return lengthAndPostings;
     }
 
     public static List<Integer> VBEncodeNumber(Integer n){
@@ -430,6 +530,7 @@ public class Indexer{
                 binary = "1" + binary;
             }
             if (IdFlag){
+                //get bytes and write to invIndexDocidBuffer
                 invIndexDocidBuffer.write(Integer.parseInt(binary, 2));
             }else{
                 invIndexFreqBuffer.write(Integer.parseInt(binary, 2));

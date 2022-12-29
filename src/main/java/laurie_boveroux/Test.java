@@ -13,10 +13,22 @@ public class Test{
 
     public static BufferedOutputStream invIndexDocidBuffer;
     public static BufferedOutputStream invIndexFreqBuffer;
+    public static int totalInvIndexBytesId;
+    public static int totalInvIndexBytesFreq;
 
     public Test() throws IOException{
         this.invIndexDocidBuffer = new BufferedOutputStream(new FileOutputStream("InvertedIndexDocid.txt"),4096 * 10000);
         this.invIndexFreqBuffer  = new BufferedOutputStream(new FileOutputStream("InvertedIndexFreq.txt"),4096 * 10000);
+        this.totalInvIndexBytesId = 0;
+        this.totalInvIndexBytesFreq = 0;
+    }
+
+    public static void writeToFileInvertedIndex() throws IOException{
+        // Write the buffer to the file
+        invIndexDocidBuffer.flush();
+        invIndexFreqBuffer.flush();
+        totalInvIndexBytesId = 0;
+        totalInvIndexBytesFreq = 0;
     }
 
     public static List<Integer> VBEncodeNumber(Integer n){
@@ -74,23 +86,27 @@ public class Test{
         return result;
     }
 
-    public static Integer gammaEncode(int n, int length, Boolean last) throws IOException {
+    public static String[] gammaEncode(int n, String l, String postinglist, Boolean last) throws IOException {
         int ceiling = 0;
         String filler = "";
+
+        String[] lengthAndPostings = new String[2];
 
         System.out.println("\nOg DocId: "+ n);
         // Convert the number to binary
         String binary = Integer.toBinaryString(n);
         // Compute the number of bits needed to represent the binary number
         int numBits = binary.length();
-        length = length + (numBits*2);
+
+        int length = Integer.parseInt(l);
+        length += (numBits*2) +1;
         System.out.println("Length: "+ length);
 
         //print length
         System.out.println("Num bits: " +numBits);
 
         // Compute the unary representation of the number of bits
-        String unary = "1".repeat(numBits);
+        String unary = "1".repeat(numBits) +"0";
 
         if (last && !(length % 8 == 0)){
             ceiling = (int) (8*(Math.ceil(Math.abs(length/8)))) +8 ;
@@ -99,71 +115,94 @@ public class Test{
         }
 
         // Write the concatenation of the unary representation and the binary number
-        binary = unary+"0"+binary+filler;
-
+        binary = unary+binary+filler;
+        String postings = postinglist + binary;
+        System.out.println("Length in Bytes: " + length/8);
         System.out.println("Gamma Encoding: " + binary);
-//        System.out.println("Parsed long: " + Long.parseLong(binary, 2));
-        //invIndexDocidBuffer.write((int) Long.parseLong(binary, 2));
 
-        byte[] bytes = binary.getBytes();
-        invIndexDocidBuffer.write(bytes);
-        return length;
+        if (last) {
+            for (int i = 0; i < postings.length(); i += 8) {
+                String byteString = postings.substring(i, Math.min(postings.length(), i + 8));
+                //System.out.println("Byte String to Encode: " + byteString);
+                invIndexDocidBuffer.write(Integer.parseInt(byteString, 2));
+            }
+        }
+
+        lengthAndPostings[0]= Integer.toString(length);
+        lengthAndPostings[1]= postings;
+        return lengthAndPostings;
 
     }
 
     public static List<Integer> gammaDecodeList(byte[] bytesTab) throws IOException {
+//        System.out.println("Gamma Decoding: " + new String(bytesTab));
         // Initialize an empty list to store the decoded numbers
         List<Integer> numbers = new ArrayList<>();
         String docIdBinary = "";
+        String postings = "";
+
+        for(int i = 0; i < bytesTab.length; i++) {
+            //System.out.println("Byte: " + bytesTab2[i]);
+            String binary = String.format("%8s", Integer.toBinaryString(bytesTab[i] & 0xFF)).replace(' ', '0');
+            postings = postings+binary;
+        }
 
         // Keep track of the current position in the encoded string
-                int pos = 0;
-                // Loop until we reach the end of the bytesTab
-                while (pos < bytesTab.length) {
+        int pos = 0;
+        // Loop until we reach the end of the bytesTab
+        while (pos < postings.length()) {
 
-                    int unary = 0;
-                    // Count the number of 1s in the unary representation
-                    while (bytesTab[pos] == '1') {
-                        //print bytestap in pos
-                        unary++;
-                        pos++;
-                    }
-                    // Skip the 0 in the unary representation
-                    pos++;
-                    for (int i =0; i < unary; i++) {
-                        //convert ascii to binary
-                        int numericValue = Character.getNumericValue(bytesTab[pos]);
-                        //System.out.println("Pos: " + pos + "\tNumeric Value: " + numericValue);
-                        //convert to string
-                        docIdBinary += Integer.toString(numericValue);
-                        //print binary
-                        //System.out.println("Binary: " + docIdBinary);
-                        pos++;
+            int unary = 0;
+            // Count the number of 1s in the unary representation
+            while (postings.charAt(pos) == '1') {
+                unary++;
+                pos++;
+            }
+            // Skip the 0 in the unary representation
+            pos++;
+            for (int i =0; i < unary; i++) {
+                //convert ascii to binary
+                int numericValue = Character.getNumericValue(postings.charAt(pos));
+                //System.out.println("Pos: " + pos + "\tNumeric Value: " + numericValue);
+                //convert to string
+                docIdBinary += Integer.toString(numericValue);
+                //print binary
+                //System.out.println("Binary: " + docIdBinary);
+                pos++;
 
-                    }
+            }
 
-                    // Convert the binary representation to an integer
-                    if (docIdBinary.length() > 0) {
-                        numbers.add(Integer.parseInt(docIdBinary, 2));
-                        docIdBinary = "";
-                    }
-                }
+            // Convert the binary representation to an integer
+            if (docIdBinary.length() > 0) {
+                numbers.add(Integer.parseInt(docIdBinary, 2));
+                docIdBinary = "";
+            }
+        }
 
         // Return the list of decoded numbers
         return numbers;
     }
 
-    public static Integer unaryEncode(int n, String separator, int length, Boolean last) throws IOException {
+    public static String[] unaryEncode(int n, String separator, String l, String postinglist, Boolean last) throws IOException {
         int ceiling = 0;
         String filler = "";
+        String unary = "";
+        //initialize array result
+        String[] lengthAndPostings = new String[2];
+
 
         System.out.println("\nOg Freq: "+ n);
 
         // Compute the unary representation of the number
+        if (last){
+            unary = ("1").repeat(n);
+        } else {
+            unary = ("1").repeat(n)+ separator;
+        }
+//        String unary = ("1").repeat(n);
+        int length = Integer.parseInt(l);
 
-        String unary = ("1").repeat(n);
-
-        length = length + unary.length()+1;
+        length += unary.length();
         System.out.println("Length: "+ length);
 
         if (last && !(length % 8 == 0)){
@@ -172,42 +211,46 @@ public class Test{
             filler = "0".repeat(ceiling-length);
         }
 
-        String result = unary+separator+filler;
-        System.out.println("Unary Encoding: " + result);
-        //System.out.println("Parsed long: " + Long.parseLong(result, 2));
+        String postings = postinglist+unary+filler;
+        System.out.println("Unary Encoding: " + postings);
 
-        //convert and write bytes to invIndexFreqBuffer
-        byte[] bytes = result.getBytes();
-        invIndexFreqBuffer.write(bytes);
+        if (last) {
+            for (int i = 0; i < postings.length(); i += 8) {
+                String byteString = postings.substring(i, Math.min(postings.length(), i + 8));
+                System.out.println("Byte String to Encode: " + byteString);
+                invIndexFreqBuffer.write(Integer.parseInt(byteString, 2));
+            }
+        }
 
-        return length;
+        lengthAndPostings[0]= Integer.toString(length);
+        lengthAndPostings[1]= postings;
+        return lengthAndPostings;
     }
 
     public static List<Integer> unaryDecodeList(byte[] bytesTab2) {
         // Initialize an empty list to store the decoded numbers
         List<Integer> numbers = new ArrayList<>();
+        String postings = "";
 
-        // Keep track of the current position in the encoded string
-        int pos = 0;
-
-        // Loop until we reach the end of the encoded string
-        while (pos < bytesTab2.length) {
-
-            int unary = 0;
-            // Count the number of 1s in the unary representation
-            while (bytesTab2[pos] == '1') {
-                //print bytestap in pos
-                unary++;
-                pos++;
+        for(int i = 0; i < bytesTab2.length; i++) {
+            //System.out.println("Byte: " + bytesTab2[i]);
+            String binary = String.format("%8s", Integer.toBinaryString(bytesTab2[i] & 0xFF)).replace(' ', '0');
+            postings = postings.concat(binary);
+        }
+        //System.out.println("Binary: " + binary);
+        int count = 0;
+        for (int j = 0; j < postings.length(); j++) {
+            if (postings.charAt(j) == '1') {
+                count++;
+            } else {
+                if (count > 0) {
+                    numbers.add(count);
+                    count = 0;
+                }
             }
-
-            //add unary to number list
-            if (unary > 0) {
-                numbers.add(unary);
-            }
-
-            // Skip the 0 in the unary representation
-            pos++;
+        }
+        if (count > 0) {
+            numbers.add(count);
         }
 
         // Return the list of decoded numbers
@@ -221,13 +264,13 @@ public class Test{
         List<Integer> listDocId = new ArrayList<Integer>();
         String postingListDocId = "";
         //store the size of the posting list to know how many filler 0s to add in the end
-        int sizePostingListGamma = 0;
-        int sizePostingListUnary = 0;
+        String[] postingListGamma = {"0", ""};
+        String[] postingListUnary = {"0", ""};
         Boolean last = false;
 
         //add random numbers between 0 and 1000000
         for (int i = 0; i < 5; i++){
-            listDocId.add((int)(Math.random() * 10000000));
+            listDocId.add((int)(Math.random() * 1000000));
         }
 
         List<Integer> listFreq = new ArrayList<Integer>();
@@ -244,9 +287,9 @@ public class Test{
                 last = true;
             }
 
-            sizePostingListGamma = gammaEncode(listDocId.get(i), sizePostingListGamma, last);
+            postingListGamma = gammaEncode(listDocId.get(i), postingListGamma[0], postingListGamma[1], last);
 
-            sizePostingListUnary = unaryEncode(listFreq.get(i),"0", sizePostingListUnary, last);
+            postingListUnary = unaryEncode(listFreq.get(i),"0", postingListUnary[0], postingListUnary[1], last);
 
         }
 

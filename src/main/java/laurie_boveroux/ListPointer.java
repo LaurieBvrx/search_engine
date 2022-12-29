@@ -70,10 +70,11 @@ public class ListPointer{
         byte[] bytesId = new byte[lengthBytes];
         fileDocIds.seek(startIndex);
         fileDocIds.read(bytesId);
+        //System.out.println("bytesId: " + Arrays.toString(bytesId));
 
         // decode the docIds
         //List<Integer> decodedDocIdsList = VBDecode(bytesId);
-        List<Integer> decodedDocIdsList = Test.gammaDecodeList(bytesId);
+        List<Integer> decodedDocIdsList = gammaDecodeList(bytesId);
 
         return decodedDocIdsList;
     }
@@ -83,12 +84,93 @@ public class ListPointer{
         byte[] bytesFreq = new byte[lengthBytes];
         fileFreqs.seek(startIndex);
         fileFreqs.read(bytesFreq);
+        //System.out.println("bytesFreq: " + Arrays.toString(bytesFreq));
 
         // decode freqs
         //List<Integer> decodedFreqsList = VBDecode(bytesFreq);
-        List<Integer> decodedFreqsList = Test.unaryDecodeList(bytesFreq);
+        List<Integer> decodedFreqsList = unaryDecodeList(bytesFreq);
 
         return decodedFreqsList;
+    }
+
+    public static List<Integer> gammaDecodeList(byte[] bytesTab) {
+        // Initialize an empty list to store the decoded numbers
+        List<Integer> numbers = new ArrayList<>();
+        String docIdBinary = "";
+        String postings = "";
+
+        // concatenate a string of all bytes
+        for(int i = 0; i < bytesTab.length; i++) {
+            //System.out.println("Byte: " + bytesTab2[i]);
+            String binary = String.format("%8s", Integer.toBinaryString(bytesTab[i] & 0xFF)).replace(' ', '0');
+            postings = postings+binary;
+        }
+
+        // Keep track of the current position in the string
+        int pos = 0;
+        // Loop until we reach the end of the posting list
+        while (pos < postings.length()) {
+
+            int unary = 0;
+            // Count the number of 1s in the unary representation
+            while (postings.charAt(pos) == '1') {
+                unary++;
+                pos++;
+            }
+            // Skip the 0 in the unary representation
+            pos++;
+
+            for (int i =0; i < unary; i++) {
+                //Create binary string of the docId
+                docIdBinary += postings.charAt(pos);
+                pos++;
+
+            }
+
+            // Convert the binary representation to an integer
+            if (docIdBinary.length() > 0) {
+                numbers.add(Integer.parseInt(docIdBinary, 2));
+                docIdBinary = "";
+            }
+        }
+
+        // Return the list of decoded numbers
+        return numbers;
+    }
+
+    public static List<Integer> unaryDecodeList(byte[] bytesTab2) {
+        // Initialize an empty list to store the decoded numbers
+        List<Integer> numbers = new ArrayList<>();
+        String postings = "";
+
+        // concatenate a string of all bytes
+        for(int i = 0; i < bytesTab2.length; i++) {
+            //Convert byte to binary string and replace gaps
+            String binary = String.format("%8s", Integer.toBinaryString(bytesTab2[i] & 0xFF)).replace(' ', '0');
+            postings = postings.concat(binary);
+        }
+
+        int count = 0;
+        // Loop until we reach the end of the posting list
+        for (int j = 0; j < postings.length(); j++) {
+            // Count the number of 1s until finding the separator 0
+            if (postings.charAt(j) == '1') {
+                count++;
+            } else {
+                // Add the number of 1s to the list of decoded numbers
+                if (count > 0) {
+                    numbers.add(count);
+                    count = 0;
+                }
+            }
+        }
+        //if the last number isn't followed by a zero, write the count into numbers
+        if (count > 0) {
+            numbers.add(count);
+        }
+
+        // Return the list of decoded numbers
+        return numbers;
     }
 
     private static List<Integer> VBDecode(byte[] bytesTab){

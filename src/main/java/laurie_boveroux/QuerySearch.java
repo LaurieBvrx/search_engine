@@ -170,7 +170,7 @@ public class QuerySearch{
     }
 
     public List<List<Double>> executeQuery(String typeQuery, String query, boolean stemFlag, String typeScore, boolean stopWordsFlag) throws IOException {
-        // Open inverted index file (dicId and frequency) for reading
+        // Open inverted index file (docId and frequency) for reading
         String currentPath = new java.io.File(".").getCanonicalPath();
         String IdPath = currentPath + "/InvertedIndexDocid.txt";
         RandomAccessFile fileDocIds = new RandomAccessFile(IdPath, "r");
@@ -213,6 +213,7 @@ public class QuerySearch{
                 return lp1.getLength() - lp2.getLength();
             }
         });
+
 
         fileDocIds.close();
         fileFreqs.close();

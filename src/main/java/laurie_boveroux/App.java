@@ -38,10 +38,10 @@ public class App
             boolean stopWordsFlag = false;
 
             // Extract the collection if the user wants to
-            String welcomeMsg = "\n\n\u001B[36m================================================\u001B[32m Welcome to Search Engine \u001B[36m================================================\u001B[0m" +
+            String welcomeMsg = "\n\n\u001B[36m================================================\u001B[32m Welcome to Search Engine: LAURAINA \u001B[36m================================================\u001B[0m" +
                                 "\nPlease create a \u001B[33mdata\u001B[0m folder in the root directory, containing the collection of documents to process." +
                                 "\nTo run this application smoothly, you may need the compressed \u001B[33mtar.gz\u001B[0m file in your `data` folder." +
-                                "\n\u001B[36m==========================================================================================================================\u001B[0m" +
+                                "\n\u001B[36m====================================================================================================================================\u001B[0m" +
                                 "\n\n=> Do you need to extract the collection? Please enter \u001B[33my\u001B[0m or \u001B[33mn\u001B[0m.";
             System.out.println(welcomeMsg);
             while(true){
@@ -103,35 +103,35 @@ public class App
                     // Create the index and the lexicon
                     Long startTime = (long) 0;
                     Indexer indexer = new Indexer("Lexicon.txt");
-                    String stemmingMsg = "\n\n=> Would you like to use stemming? Please enter \u001B[33my\u001B[0m or \u001B[33mn\u001B[0m.";
-                    System.out.println(stemmingMsg);
+                    String stopWordsMsg = "\n\n=> Would you like to remove stopwords? Please enter \u001B[33my\u001B[0m or \u001B[33mn\u001B[0m.";
+                    System.out.println(stopWordsMsg);
                     while(true) {
-                        Scanner scStem = new Scanner(System.in);
-                        String answerStem = scStem.nextLine();
+                        Scanner scStop = new Scanner(System.in);
+                        String answerStop = scStop.nextLine();
 
-                        String stopWordsMsg = "\n\n=> Would you like to remove stopwords? Please enter \u001B[33my\u001B[0m or \u001B[33mn\u001B[0m.";
-                        System.out.println(stopWordsMsg);
+                        String stemmingMsg = "\n\n=> Would you like to perform stemming? Please enter \u001B[33my\u001B[0m or \u001B[33mn\u001B[0m.";
+                        System.out.println(stemmingMsg);
                         while(true) {
-                            Scanner scStop = new Scanner(System.in);
-                            String answerStop = scStop.nextLine();
-                            if (answerStop.equals("y")) {
-                                stopWordsFlag = true;
+                            Scanner scStem = new Scanner(System.in);
+                            String answerStem = scStem.nextLine();
+                            if (answerStem.equals("y")) {
+                                stemFlag = true;
                                 break;
-                            } else if (answerStop.equals("n")) {
-                                stopWordsFlag = false;
+                            } else if (answerStem.equals("n")) {
+                                stemFlag = false;
                                 break;
                             } else {
                                 System.out.println("Please enter \u001B[33my\u001B[0m or \u001B[33mn\u001B[0m.");
                             }
                         }
 
-                        if (answerStem.equals("y")) {
-                            stemFlag = true;
+                        if (answerStop.equals("y")) {
+                            stopWordsFlag = true;
                             startTime = System.nanoTime();
                             indexer.parseTsvFile(dirData + fileName, nbDocToProcess, stemFlag, stopWordsFlag);
                             //break;
-                        } else if (answerStem.equals("n")) {
-                            stemFlag = false;
+                        } else if (answerStop.equals("n")) {
+                            stopWordsFlag = false;
                             startTime = System.nanoTime();
                             indexer.parseTsvFile(dirData + fileName, nbDocToProcess, stemFlag, stopWordsFlag);
                             //break;
@@ -279,15 +279,16 @@ public class App
                     //System.out.println("Query processed in " + (endTime - startTime)/1000000000 + " seconds");
 
                     // Print the results
-                    List<Double> docno = tmp.get(0);
-                    List<Integer> docnoInt = new ArrayList<Integer>();
-                    for (Double d : docno){
-                        docnoInt.add(d.intValue());
+                    if (tmp != null) {
+                        List<Double> docno = tmp.get(0);
+                        List<Integer> docnoInt = new ArrayList<Integer>();
+                        for (Double d : docno) {
+                            docnoInt.add(d.intValue());
+                        }
+                        List<Double> scores = tmp.get(1);
+                        System.out.println("\t> Docno : \u001B[34m" + docnoInt + "\u001B[0m");
+                        System.out.println("\t> Scores: \u001B[34m" + scores + "\u001B[0m");
                     }
-                    List<Double> scores = tmp.get(1);
-                    System.out.println("\t> Docno : \u001B[34m" + docnoInt + "\u001B[0m");
-                    System.out.println("\t> Scores: \u001B[34m" + scores + "\u001B[0m");
-
                     String msg = "\n\n=> Do you want to print the relevant documents? " +
                                  "\n\t\033[3mPlease enter \u001B[33my\u001B[0m \033[3mor \u001B[33mn\u001B[0m.";
                     System.out.println(msg);
