@@ -70,11 +70,10 @@ public class ListPointer{
         byte[] bytesId = new byte[lengthBytes];
         fileDocIds.seek(startIndex);
         fileDocIds.read(bytesId);
-        //System.out.println("bytesId: " + Arrays.toString(bytesId));
 
         // decode the docIds
-        //List<Integer> decodedDocIdsList = VBDecode(bytesId);
-        List<Integer> decodedDocIdsList = gammaDecodeList(bytesId);
+        List<Integer> decodedDocIdsList = VBDecode(bytesId);
+        //List<Integer> decodedDocIdsList = gammaDecodeList(bytesId);
 
         return decodedDocIdsList;
     }
@@ -84,11 +83,10 @@ public class ListPointer{
         byte[] bytesFreq = new byte[lengthBytes];
         fileFreqs.seek(startIndex);
         fileFreqs.read(bytesFreq);
-        //System.out.println("bytesFreq: " + Arrays.toString(bytesFreq));
 
         // decode freqs
-        //List<Integer> decodedFreqsList = VBDecode(bytesFreq);
-        List<Integer> decodedFreqsList = unaryDecodeList(bytesFreq);
+        List<Integer> decodedFreqsList = VBDecode(bytesFreq);
+        //List<Integer> decodedFreqsList = unaryDecodeList(bytesFreq);
 
         return decodedFreqsList;
     }

@@ -264,8 +264,6 @@ public class Indexer{
                     postings[postings.length-1] = postings[postings.length-1].substring(0, postings[postings.length-1].length()-1);
                 }
 
-                System.out.println("\nterm: " + minTerm + " | postings: " + postingArray.toString());
-
                 // reduce the posting list
                 int[] bytes = reduceAndWritePostingList(postings);
                 byteWrittenDocId += bytes[0];
@@ -336,9 +334,12 @@ public class Indexer{
         int[] writtenBytes = new int[2];
         int writtenBytesDocid = 0;
         int writtenBytesFreq = 0;
-        String[] postingListGamma = {"0", ""};
-        String[] postingListUnary = {"0", ""};
-        Boolean last = false;
+
+//        //These three variables are for Gamma and Unary encoding
+//        String[] postingListGamma = {"0", ""};
+//        String[] postingListUnary = {"0", ""};
+//        Boolean last = false;
+
 
         // if invIndexDocidBuffer is full, write it to the file
         // (avoid to write too often and slow down the process)   
@@ -362,46 +363,45 @@ public class Indexer{
                 i++;
             }
 
-            //check if last element of the posting list
-            if (i+1 > postingsString.length){
-                last = true;
-            }
-
+//            //check if last element of the posting list for Gamma and Unary encoding
+//            if (i+1 > postingsString.length){
+//                last = true;
+//            }
 
             int currDocIdInt = Integer.parseInt(currDocId);
 
             //Gamma Encode for docIds
-            postingListGamma = gammaEncode(currDocIdInt, postingListGamma[0], postingListGamma[1], last);
+            //postingListGamma = gammaEncode(currDocIdInt, postingListGamma[0], postingListGamma[1], last);
 
             //Unary Encode for Frequencies
-            postingListUnary = unaryEncode(count,"0", postingListUnary[0], postingListUnary[1], last);
+            //postingListUnary = unaryEncode(count,"0", postingListUnary[0], postingListUnary[1], last);
 
-//            //VB Encode for docid
-//            List<Integer> encodedDocId = new ArrayList<Integer>();
-//            encodedDocId = VBEncodeNumber(currDocIdInt);
-//            VBEncode(encodedDocId, true);
-//            int lenDocId = encodedDocId.size();
-//
-//            // VB Encode for freq
-//            List<Integer> encodedFreq = new ArrayList<Integer>();
-//            encodedFreq = VBEncodeNumber(count);
-//            VBEncode(encodedFreq, false);
-//            int lenFreq = encodedFreq.size();
-//
-//            totalInvIndexBytesId += lenDocId; // to know if the buffer is full
-//            totalInvIndexBytesFreq += lenFreq;
-//            writtenBytesDocid += lenDocId; // to know when a posting list ends
-//            writtenBytesFreq += lenFreq;
+            //VB Encode for docid
+            List<Integer> encodedDocId = new ArrayList<Integer>();
+            encodedDocId = VBEncodeNumber(currDocIdInt);
+            VBEncode(encodedDocId, true);
+            int lenDocId = encodedDocId.size();
+
+            // VB Encode for freq
+            List<Integer> encodedFreq = new ArrayList<Integer>();
+            encodedFreq = VBEncodeNumber(count);
+            VBEncode(encodedFreq, false);
+            int lenFreq = encodedFreq.size();
+
+            totalInvIndexBytesId += lenDocId; // to know if the buffer is full
+            totalInvIndexBytesFreq += lenFreq;
+            writtenBytesDocid += lenDocId; // to know when a posting list ends
+            writtenBytesFreq += lenFreq;
         }
 
-        totalInvIndexBytesId += Integer.parseInt(postingListGamma[0])/8; // to know if the buffer is full
-        totalInvIndexBytesFreq += Integer.parseInt(postingListUnary[0])/8;
-        writtenBytesDocid += Integer.parseInt(postingListGamma[0])/8; // to know when a posting list ends
-        writtenBytesFreq += Integer.parseInt(postingListUnary[0])/8;
+//        //These lines are for Gamma and Unary encoding
+//        totalInvIndexBytesId += Integer.parseInt(postingListGamma[0])/8; // to know if the buffer is full
+//        totalInvIndexBytesFreq += Integer.parseInt(postingListUnary[0])/8;
+//        writtenBytesDocid += Integer.parseInt(postingListGamma[0])/8; // to know when a posting list ends
+//        writtenBytesFreq += Integer.parseInt(postingListUnary[0])/8;
 
         writtenBytes[0] = writtenBytesDocid;
         writtenBytes[1] = writtenBytesFreq;
-        System.out.println("writtenBytes = " + Arrays.toString(writtenBytes));
         return writtenBytes;
     }
 
